@@ -1,5 +1,5 @@
--- PRAGMA journal_mode = WAL;
--- PRAGMA foreign_keys = ON;
+PRAGMA journal_mode = WAL;
+PRAGMA foreign_keys = ON;
 
 CREATE TABLE author (
     author_id INTEGER NOT NULL PRIMARY KEY,
