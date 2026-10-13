@@ -9,7 +9,7 @@ fn on_startup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  // Regenerates the frontend bindings (commands + table types) on every dev
+  // Regenerates the frontend bindings (commands.ts + types.ts) on every dev
   // launch. Also runnable without launching the app: `cargo test export_bindings`.
   #[cfg(debug_assertions)]
   export_bindings();
@@ -25,11 +25,8 @@ pub fn run() {
 
 #[cfg(any(debug_assertions, test))]
 fn export_bindings() {
-  tauri_groups::export_ts(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../src/lib/commands.ts"
-  ))
-  .expect("failed to write src/lib/commands.ts");
+  tauri_groups::export_ts(concat!(env!("CARGO_MANIFEST_DIR"), "/../src/lib"))
+    .expect("failed to write src/lib/{commands,types}.ts");
 }
 
 #[cfg(test)]

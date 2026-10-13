@@ -1,7 +1,7 @@
 //! One struct per table in migrations/0001_initial.sql.
 //!
 //! `FromRow` reads them out of sqlx, `Serialize` sends them over IPC, and
-//! `TsType` emits the matching `export interface` into src/lib/commands.ts.
+//! `TsType` emits the matching `export interface` into src/lib/types.ts.
 //! Dates are ISO `YYYY-MM-DD` text (SQLite has no real date type).
 
 use serde::{Deserialize, Serialize};
