@@ -1,0 +1,17 @@
+[package]
+name = "tauri-groups"
+version = "0.2.0"
+edition = "2021"
+
+[features]
+# TsType impls for common DB column types
+chrono = ["dep:chrono"]
+uuid = ["dep:uuid"]
+
+[dependencies]
+tauri = "2"
+inventory = "0.3"
+serde_json = "1"
+tauri-groups-macros = { path = "../macros" }
+chrono = { version = "0.4", default-features = false, optional = true }
+uuid = { version = "1", optional = true }
