@@ -1037,8 +1037,10 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+ "syn 2.0.119",
  "tauri",
  "tauri-build",
+ "tauri-groups",
  "tauri-plugin-opener",
 ]
 
@@ -3464,6 +3466,14 @@ dependencies = [
  "url",
  "uuid",
  "walkdir",
+]
+
+[[package]]
+name = "tauri-groups"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
