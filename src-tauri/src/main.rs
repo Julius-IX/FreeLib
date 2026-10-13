@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    free_lib_lib::run()
+  free_lib_lib::run()
 }

@@ -33,6 +33,8 @@ struct Cmd {
 
 fn main() {
   println!("cargo:rerun-if-changed=src");
+  println!("cargo:rerun-if-changed=migrations");
+
   let mut s = Scanner { cmds: vec![] };
   // Follow `mod x;` declarations from the crate root, like rustc does.
   s.file(Ctx {
