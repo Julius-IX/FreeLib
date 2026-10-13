@@ -64,7 +64,7 @@ impl Serialize for DbError {
   }
 }
 
-type Res<T> = Result<T, DbError>;
+pub(crate) type Res<T> = Result<T, DbError>;
 
 // SECTION: inputs
 

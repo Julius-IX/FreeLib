@@ -1,4 +1,5 @@
 mod database;
+mod filter;
 pub mod models;
 
 fn on_startup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {

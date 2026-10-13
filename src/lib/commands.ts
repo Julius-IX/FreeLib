@@ -30,6 +30,33 @@ export interface BookAuthor {
   authorId: number;
 }
 
+export interface BookFilter {
+  text: string | null;
+  title: string | null;
+  blurb: string | null;
+  author: string | null;
+  tag: string | null;
+  series: string | null;
+  seriesId: number | null;
+  authorIdsAny: number[];
+  tagIdsAny: number[];
+  tagIdsAll: number[];
+  tagIdsNone: number[];
+  publishFrom: string | null;
+  publishTo: string | null;
+  pageCountMin: number | null;
+  pageCountMax: number | null;
+  authorBirthFrom: string | null;
+  authorBirthTo: string | null;
+  authorDeathFrom: string | null;
+  authorDeathTo: string | null;
+  readStatus: ReadStatus | null;
+  startedFrom: string | null;
+  startedTo: string | null;
+  finishedFrom: string | null;
+  finishedTo: string | null;
+}
+
 export interface BookInput {
   title: string;
   isbn: string | null;
@@ -46,6 +73,8 @@ export interface BookTag {
   bookId: number;
   tagId: number;
 }
+
+export type ReadStatus = "unread" | "inProgress" | "finished";
 
 export interface Reading {
   readingId: number;
@@ -82,6 +111,9 @@ export interface TagType {
 }
 
 export const commands = {
+  db: {
+    filterBooks: (args: { filter: BookFilter }) => invoke<Book[]>("db__filter_books", args),
+  },
   db_crud: {
     createAuthor: (args: { author: AuthorInput }) => invoke<Author>("db_crud__create_author", args),
     createBook: (args: { book: BookInput }) => invoke<Book>("db_crud__create_book", args),
