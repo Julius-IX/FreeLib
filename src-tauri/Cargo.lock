@@ -1145,7 +1145,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sqlx",
- "syn 2.0.119",
  "tauri",
  "tauri-build",
  "tauri-groups",
@@ -1888,6 +1887,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4200d433cbd5178df7797c9c2e75b348b728e39631cf14520d1e2fc424201f4"
 dependencies = [
  "cfb",
+]
+
+[[package]]
+name = "inventory"
+version = "0.3.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6928282826c822ad91bf1c9a1cb90a30ba1c26770749929b4656cd6be829cd7c"
+dependencies = [
+ "rustversion",
 ]
 
 [[package]]
@@ -4093,8 +4101,19 @@ dependencies = [
 
 [[package]]
 name = "tauri-groups"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
+ "inventory",
+ "serde_json",
+ "tauri",
+ "tauri-groups-macros",
+]
+
+[[package]]
+name = "tauri-groups-macros"
+version = "0.2.0"
+dependencies = [
+ "proc-macro2",
  "quote",
  "syn 2.0.119",
 ]
