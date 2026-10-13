@@ -8,6 +8,12 @@ export interface Author {
   deathDate: string | null;
 }
 
+export interface AuthorInput {
+  name: string;
+  birthDate: string | null;
+  deathDate: string | null;
+}
+
 export interface Book {
   bookId: number;
   title: string;
@@ -24,6 +30,18 @@ export interface BookAuthor {
   authorId: number;
 }
 
+export interface BookInput {
+  title: string;
+  isbn: string | null;
+  publishDate: string | null;
+  blurb: string | null;
+  pageCount: number | null;
+  seriesId: number | null;
+  seriesPosition: number | null;
+  authorIds: number[];
+  tagIds: number[];
+}
+
 export interface BookTag {
   bookId: number;
   tagId: number;
@@ -31,6 +49,12 @@ export interface BookTag {
 
 export interface Reading {
   readingId: number;
+  bookId: number;
+  dateStarted: string | null;
+  dateFinished: string | null;
+}
+
+export interface ReadingInput {
   bookId: number;
   dateStarted: string | null;
   dateFinished: string | null;
@@ -47,10 +71,49 @@ export interface Tag {
   name: string;
 }
 
+export interface TagInput {
+  tagTypeId: number;
+  name: string;
+}
+
 export interface TagType {
   tagTypeId: number;
   name: string;
 }
 
 export const commands = {
+  db_crud: {
+    createAuthor: (args: { author: AuthorInput }) => invoke<Author>("db_crud__create_author", args),
+    createBook: (args: { book: BookInput }) => invoke<Book>("db_crud__create_book", args),
+    createReading: (args: { reading: ReadingInput }) => invoke<Reading>("db_crud__create_reading", args),
+    createSeries: (args: { name: string }) => invoke<Series>("db_crud__create_series", args),
+    createTag: (args: { tag: TagInput }) => invoke<Tag>("db_crud__create_tag", args),
+    createTagType: (args: { name: string }) => invoke<TagType>("db_crud__create_tag_type", args),
+    deleteAuthor: (args: { authorId: number }) => invoke<void>("db_crud__delete_author", args),
+    deleteBook: (args: { bookId: number }) => invoke<void>("db_crud__delete_book", args),
+    deleteReading: (args: { readingId: number }) => invoke<void>("db_crud__delete_reading", args),
+    deleteSeries: (args: { seriesId: number }) => invoke<void>("db_crud__delete_series", args),
+    deleteTag: (args: { tagId: number }) => invoke<void>("db_crud__delete_tag", args),
+    deleteTagType: (args: { tagTypeId: number }) => invoke<void>("db_crud__delete_tag_type", args),
+    getAuthor: (args: { authorId: number }) => invoke<Author>("db_crud__get_author", args),
+    getBook: (args: { bookId: number }) => invoke<Book>("db_crud__get_book", args),
+    getBookAuthors: (args: { bookId: number }) => invoke<Author[]>("db_crud__get_book_authors", args),
+    getBookTags: (args: { bookId: number }) => invoke<Tag[]>("db_crud__get_book_tags", args),
+    getReading: (args: { readingId: number }) => invoke<Reading>("db_crud__get_reading", args),
+    getSeries: (args: { seriesId: number }) => invoke<Series>("db_crud__get_series", args),
+    getTag: (args: { tagId: number }) => invoke<Tag>("db_crud__get_tag", args),
+    getTagType: (args: { tagTypeId: number }) => invoke<TagType>("db_crud__get_tag_type", args),
+    listAuthors: () => invoke<Author[]>("db_crud__list_authors"),
+    listBooks: (args?: { seriesId?: number | null; authorId?: number | null; tagId?: number | null }) => invoke<Book[]>("db_crud__list_books", args),
+    listReadings: (args?: { bookId?: number | null }) => invoke<Reading[]>("db_crud__list_readings", args),
+    listSeries: () => invoke<Series[]>("db_crud__list_series"),
+    listTagTypes: () => invoke<TagType[]>("db_crud__list_tag_types"),
+    listTags: (args?: { tagTypeId?: number | null }) => invoke<Tag[]>("db_crud__list_tags", args),
+    updateAuthor: (args: { authorId: number; author: AuthorInput }) => invoke<Author>("db_crud__update_author", args),
+    updateBook: (args: { bookId: number; book: BookInput }) => invoke<Book>("db_crud__update_book", args),
+    updateReading: (args: { readingId: number; reading: ReadingInput }) => invoke<Reading>("db_crud__update_reading", args),
+    updateSeries: (args: { seriesId: number; name: string }) => invoke<Series>("db_crud__update_series", args),
+    updateTag: (args: { tagId: number; tag: TagInput }) => invoke<Tag>("db_crud__update_tag", args),
+    updateTagType: (args: { tagTypeId: number; name: string }) => invoke<TagType>("db_crud__update_tag_type", args),
+  },
 } as const;
