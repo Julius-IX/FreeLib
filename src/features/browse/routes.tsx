@@ -1,6 +1,6 @@
 import { RouteObject } from "react-router-dom";
 import { Box, Button, Typography } from "@mui/material";
-import { notify } from "@util/notify";
+import { notify } from "@/notifications/notify";
 
 function BrowseHome() {
   return (

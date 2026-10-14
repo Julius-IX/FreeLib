@@ -4,7 +4,7 @@ import { Book } from "@/lib/types";
 
 import { useEffect, useState } from "react";
 import placeholderCover from "@/assets/placeholder-cover.png";
-import { useLocalImage } from "./CoverPreview";
+import { useLocalImage } from "../screens/CoverPreview";
 
 /** Path of the saved cover for this ISBN, or null if there isn't one. */
 function useCoverPath(isbn: string | null | undefined) {

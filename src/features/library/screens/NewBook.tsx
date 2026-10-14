@@ -9,18 +9,18 @@ import {
   TextField,
   createFilterOptions,
 } from "@mui/material";
-import OptionalModal from "@components/OptionalModal";
+import OptionalModal from "@/modal/OptionalModal";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import FolderOpenIcon from "@mui/icons-material/FolderOpen";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { isOnMobile } from "@/App";
+import { isMobile } from "@/util/misc";
 import { commands } from "@/lib/commands";
 import type { Book, BookInput } from "@/lib/types";
-import { TagField } from "@components/TagField";
-import { notify } from "@/util/notify";
+import { TagField } from "@/components/TagField";
+import { notify } from "@/notifications/notify";
 import { COVER_SEGMENT, CoverPreviewCard, type CoverCtx } from "./CoverPreview";
 
 const emptyToNull = (s: string) => (s.trim() === "" ? null : s.trim());
@@ -149,7 +149,6 @@ type Fields = Omit<BookInput, "authorIds" | "tagIds" | "seriesId" | "publishDate
  */
 export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const navigate = useNavigate();
-  const isMobile = useContext(isOnMobile);
   const location = useLocation();
   const seed: BookDraft = initial ?? (location.state as NewBookState | null)?.initial ?? {};
   const [saving, setSaving] = useState(false);
@@ -292,11 +291,11 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         flexDirection: "column",
         gap: 2,
         // the dialog paper is overflow: visible (so the preview can sit outside it), scroll here
-        maxHeight: isMobile ? undefined : "calc(100dvh - 64px)",
-        overflowY: isMobile ? undefined : "auto",
+        maxHeight: isMobile() ? undefined : "calc(100dvh - 64px)",
+        overflowY: isMobile() ? undefined : "auto",
       }}
     >
-      {isMobile && (
+      {isMobile() && (
         <Box>
           <IconButton aria-label="Back" onClick={() => navigate(-1)}>
             <ArrowBackIcon />
@@ -372,7 +371,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
           coverNeedsIsbn ? "Covers are copied and saved locally" : "Paste a link or choose a file"
         }
         // mobile: tap to open the dedicated preview page
-        onPreview={isMobile && hasCover ? () => navigate(COVER_SEGMENT) : undefined}
+        onPreview={isMobile() && hasCover ? () => navigate(COVER_SEGMENT) : undefined}
       />
 
       <DateField value={dateText} onChange={setDateText} invalid={dateInvalid} />
@@ -405,7 +404,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         <Box sx={{ display: outlet ? "none" : "block" }}>{form}</Box>
         {outlet}
         {/* desktop: preview sits to the right of this modal */}
-        {!isMobile && hasCover && <CoverPreviewCard source={cover} />}
+        {!isMobile() && hasCover && <CoverPreviewCard source={cover} />}
       </Box>
     </OptionalModal>
   );

@@ -3,7 +3,7 @@ import Fab from '@mui/material/Fab';
 import Zoom from '@mui/material/Zoom';
 import Box from '@mui/material/Box';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
-import { useModalMounted } from '@util/modalMounted';
+import { useModalMounted } from '@/modal/modalMounted';
 
 export interface FabAction {
   label: string;

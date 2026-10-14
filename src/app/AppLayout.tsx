@@ -5,8 +5,8 @@ import {
 } from "@mui/material";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { Tab, RouteHandle, tabs } from "./tabs";
-import { isMobile } from "@util/misc";
-import ModalHost from "./ModalHost";
+import { isMobile } from "@/util/misc";
+import ModalHost from "@/modal/ModalHost";
 
 const SIDEBAR_MIN = 72; // icon-only rail
 const SIDEBAR_MAX = 400;

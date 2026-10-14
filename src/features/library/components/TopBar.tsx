@@ -3,9 +3,9 @@ import { Box, Chip, Typography, IconButton } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { notify } from "@/util/notify";
+import { notify } from "@/notifications/notify";
 import { isDesktop } from "@/util/misc";
-import { useLibrary } from "@/LibraryContext";
+import { useLibrary } from "../LibraryContext";
 import SearchField from "./SearchField";
 
 export default function TopBar() {

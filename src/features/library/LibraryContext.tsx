@@ -9,8 +9,8 @@ import {
 } from "react";
 import { commands } from "@/lib/commands";
 import type { Book, BookFilter } from "@/lib/types";
-import { emptyFilter } from "@/lib/searchQuery";
-import { notify } from "@/util/notify";
+import { emptyFilter } from "./searchQuery";
+import { notify } from "@/notifications/notify";
 
 type LibraryState = {
   books: Book[];

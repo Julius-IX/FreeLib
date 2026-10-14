@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { Box, Button, IconButton, TextField } from "@mui/material";
-import OptionalModal from "@components/OptionalModal";
+import OptionalModal from "@/modal/OptionalModal";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useContext, useState, useEffect } from "react";
-import { isOnMobile } from "@/App";
+import { useState, useEffect } from "react";
+import { isMobile } from "@/util/misc";
 import { commands } from "@/lib/commands";
 
 type Availability = "idle" | "checking" | "available" | "taken" | "error";
@@ -18,7 +18,6 @@ const HELPER_TEXT: Record<Availability, string> = {
 
 export default function NewSeries() {
   const navigate = useNavigate();
-  const isMobile = useContext(isOnMobile);
   const [name, setName] = useState("");
   const [status, setStatus] = useState<Availability>("idle");
 
@@ -63,7 +62,7 @@ export default function NewSeries() {
   return (
     <OptionalModal fullWidth maxWidth="sm">
       <Box sx={{ p: 2, boxSizing: "border-box", display: "flex", flexDirection: "column", gap: 2 }}>
-        {isMobile && (
+        {isMobile() && (
           <Box>
             <IconButton aria-label="Back" onClick={() => navigate(-1)}>
               <ArrowBackIcon />

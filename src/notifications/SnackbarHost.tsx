@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Alert, Box, Button, SnackbarContent } from "@mui/material";
-import { subscribe, type Item } from "@util/notify";
+import { subscribe, type Item } from "./notify";
 
 const DEFAULT_NOTIFY_DURATION = 1500;
 const POP_IN_MS = 180; // pop in

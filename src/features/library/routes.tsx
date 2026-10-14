@@ -1,17 +1,17 @@
 import { RouteObject, useNavigate } from "react-router-dom";
 import { Box, Typography, Button } from "@mui/material";
-import FabActionStack from "@components/FabActionStack";
+import FabActionStack from "@/components/FabActionStack";
 import BookIcon from '@mui/icons-material/Book';
 import FolderIcon from '@mui/icons-material/Folder';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import { isDesktop, isMobile, once } from "@/util/misc";
-import { RouteHandle } from "@/tabs";
-import NewSeries from "./NewSeries";
-import NewBook from "./NewBook";
-import CoverPreviewPage, { COVER_SEGMENT } from "./CoverPreview";
-import TopBar from "./TopBar";
-import { LibraryProvider, useLibrary } from "@/LibraryContext";
-import CardGrid from "./CardGrid";
+import { RouteHandle } from "@/app/tabs";
+import NewSeries from "./screens/NewSeries";
+import NewBook from "./screens/NewBook";
+import CoverPreviewPage, { COVER_SEGMENT } from "./screens/CoverPreview";
+import TopBar from "./components/TopBar";
+import { LibraryProvider, useLibrary } from "./LibraryContext";
+import CardGrid from "./components/CardGrid";
 
 function LibraryHomeWrapper() {
   return (

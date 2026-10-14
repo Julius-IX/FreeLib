@@ -2,8 +2,8 @@ import { forwardRef, ReactElement, ReactNode, Ref, useContext, useLayoutEffect }
 import { Dialog, DialogProps, Slide } from "@mui/material";
 import { TransitionProps } from "@mui/material/transitions";
 import { useNavigate } from "react-router-dom";
-import { ModalContext } from "@/ModalHost";
-import { setModalMounted } from "@util/modalMounted";
+import { ModalContext } from "./ModalHost";
+import { setModalMounted } from "./modalMounted";
 
 const SlideUp = forwardRef(function SlideUp(
   props: TransitionProps & { children: ReactElement },

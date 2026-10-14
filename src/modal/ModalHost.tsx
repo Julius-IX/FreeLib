@@ -1,7 +1,7 @@
 import { createContext, useCallback, useMemo, useReducer, useRef } from "react";
 import type { Location, RouteObject } from "react-router-dom";
 import { useLocation, useMatches, useRoutes } from "react-router-dom";
-import type { RouteHandle } from "./tabs";
+import type { RouteHandle } from "@/app/tabs";
 
 export type ModalState = {
   /** This route is being shown as a modal (vs. a plain page). */
