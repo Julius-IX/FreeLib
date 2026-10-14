@@ -17,6 +17,7 @@ pub fn run() {
   export_bindings();
 
   tauri::Builder::default()
+    .plugin(tauri_plugin_os::init())
     .setup(|app| on_startup(app))
     .plugin(tauri_plugin_opener::init())
     // built from every `#[command(group)]` fn in the crate: no lists to maintain
