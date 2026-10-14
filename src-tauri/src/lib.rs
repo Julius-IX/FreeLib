@@ -1,3 +1,4 @@
+mod covers;
 mod database;
 mod filter;
 pub mod models;
@@ -18,6 +19,7 @@ pub fn run() {
 
   tauri::Builder::default()
     .plugin(tauri_plugin_os::init())
+    .plugin(tauri_plugin_fs::init())
     .setup(|app| on_startup(app))
     .plugin(tauri_plugin_opener::init())
     // built from every `#[command(group)]` fn in the crate: no lists to maintain
