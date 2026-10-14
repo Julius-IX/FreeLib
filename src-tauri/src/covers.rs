@@ -110,14 +110,31 @@ fn too_big() -> CoverError {
   ))
 }
 
+/// The HTTP client used for cover downloads.
+///
+/// On Android, reqwest 0.13's default certificate check is rustls-platform-verifier, which has
+/// to be initialised from Java at startup. Passing custom roots via `tls_certs_only` makes reqwest verify against
+/// Mozilla's public roots and never touch the platform verifier. Desktop keeps the OS trust
+/// store, so corporate / user-installed CAs still work there.
+fn http_client() -> Result<reqwest::Client, reqwest::Error> {
+  let builder = reqwest::Client::builder()
+    .timeout(DOWNLOAD_TIMEOUT)
+    .user_agent(concat!("free-lib/", env!("CARGO_PKG_VERSION")));
+
+  #[cfg(target_os = "android")]
+  let builder = builder.tls_certs_only(
+    webpki_root_certs::TLS_SERVER_ROOT_CERTS
+      .iter()
+      .filter_map(|der| reqwest::Certificate::from_der(der.as_ref()).ok()),
+  );
+
+  builder.build()
+}
+
 async fn download(url: &str) -> Res<Vec<u8>> {
   let net = |e: reqwest::Error| CoverError::new(format!("download failed: {e}"));
 
-  let client = reqwest::Client::builder()
-    .timeout(DOWNLOAD_TIMEOUT)
-    .user_agent(concat!("free-lib/", env!("CARGO_PKG_VERSION")))
-    .build()
-    .map_err(net)?;
+  let client = http_client().map_err(net)?;
   let mut resp = client
     .get(url)
     .send()
@@ -156,7 +173,13 @@ async fn load_source(app: &AppHandle, source: &str) -> Res<Vec<u8>> {
   let source = source.trim();
   let lower = source.to_ascii_lowercase();
   if lower.starts_with("http://") || lower.starts_with("https://") {
-    download(source).await
+    // Own task: if anything in the network stack panics, that surfaces here as an error the
+    // frontend can show. A panic inside the command itself is never answered, so the
+    // frontend promise would wait forever.
+    let url = source.to_owned();
+    tauri::async_runtime::spawn(async move { download(&url).await })
+      .await
+      .map_err(|e| CoverError::new(format!("download task failed: {e}")))?
   } else {
     read_local(app, source)
   }
