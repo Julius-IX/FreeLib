@@ -24,3 +24,10 @@ export function normalizeDate(text: string): string | null | undefined {
 }
 
 export const normIsbn = (s: string) => s.replace(/[\s-]/g, "").toUpperCase(); // 978-0-... == 9780...
+
+/**
+ * Same rule as `normalize_isbn` in the Rust covers module: 13 digits, or 9 digits plus a digit
+ * or X. No checksum. Anything the backend would reject is rejected here too, so a book can't
+ * be saved with an ISBN its cover could never be stored under.
+ */
+export const isValidIsbn = (s: string) => /^(\d{13}|\d{9}[\dX])$/.test(normIsbn(s));

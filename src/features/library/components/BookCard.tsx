@@ -5,14 +5,22 @@ import { Book } from "@/lib/types";
 import { useEffect, useState } from "react";
 import placeholderCover from "@/assets/placeholder-cover.png";
 import { useLocalImage } from "../screens/CoverPreview";
+import { useCoverRevision } from "../libraryEvents";
+import { isValidIsbn } from "../book-form/inputs";
 
-/** Path of the saved cover for this ISBN, or null if there isn't one. */
-function useCoverPath(isbn: string | null | undefined) {
+/**
+ * Path of the saved cover for this ISBN, or null if there isn't one. `rev` changes when a cover
+ * for this ISBN was saved or removed, so a card that mounted before the file existed asks again.
+ */
+function useCoverPath(isbn: string | null | undefined, rev: number) {
   const [path, setPath] = useState<string | null>(null);
 
   useEffect(() => {
-    setPath(null);
-    if (isbn == null) return;
+    // Rows saved before ISBNs were validated can hold junk; the backend rejects those every time.
+    if (isbn == null || !isValidIsbn(isbn)) {
+      setPath(null);
+      return;
+    }
 
     let cancelled = false;
     commands.covers
@@ -20,14 +28,15 @@ function useCoverPath(isbn: string | null | undefined) {
       .then((p) => {
         if (!cancelled) setPath(p);
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error(`getCoverPath(${isbn}) failed`, e);
         if (!cancelled) setPath(null);
       });
 
     return () => {
       cancelled = true;
     };
-  }, [isbn]);
+  }, [isbn, rev]);
 
   return path;
 }
@@ -37,7 +46,8 @@ function useCoverPath(isbn: string | null | undefined) {
  * The placeholder is a normal bundled asset URL, so it's a plain <img>, not a file read.
  */
 function BookCover({ isbn, title }: { isbn: string | null | undefined; title: string }) {
-  const local = useLocalImage(useCoverPath(isbn));
+  const rev = useCoverRevision(isbn);
+  const local = useLocalImage(useCoverPath(isbn, rev), rev);
   return (
     <Box
       component="img"

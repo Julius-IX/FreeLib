@@ -13,9 +13,10 @@ import { CoverField } from "../book-form/CoverField";
 import { DateField } from "../book-form/DateField";
 import { SeriesField } from "../book-form/SeriesField";
 import { toChoice, toChoices } from "../book-form/choice";
-import { emptyToNull, noSpinners, normalizeDate, numOrNull } from "../book-form/inputs";
-import { defaultTagTypeId, findBookByIsbn, removeCover, saveNew } from "../book-form/persistence";
+import { emptyToNull, isValidIsbn, noSpinners, normalizeDate, numOrNull } from "../book-form/inputs";
+import { defaultTagTypeId, findBookByIsbn, removeCover, saveNew, withTimeout } from "../book-form/persistence";
 import type { BookDraft, BookFields, Choice } from "../book-form/types";
+import { bumpLibrary } from "../libraryEvents";
 
 /** Router state shape, for `navigate(LibraryPath.AddBook, { state: { initial } satisfies NewBookState })`. */
 export type NewBookState = { initial?: BookDraft };
@@ -76,13 +77,15 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const outlet = useOutlet({ cover, setCover } satisfies CoverCtx);
 
   const hasCover = cover.trim() !== "";
-  const coverNeedsIsbn = hasCover && !fields.isbn; // covers are stored by ISBN
+  // An ISBN is required: it's the book's identity here and the cover's file name.
+  const isbnInvalid = fields.isbn === null || !isValidIsbn(fields.isbn);
   const publishDate = normalizeDate(dateText); // undefined = not a valid date
   const dateInvalid = publishDate === undefined;
-  const canCreate = fields.title.trim() !== "" && !coverNeedsIsbn && !dateInvalid && !saving;
+  const canCreate = fields.title.trim() !== "" && !isbnInvalid && !dateInvalid && !saving;
 
   const handleCreate = async () => {
-    if (!canCreate) return;
+    const isbn = fields.isbn;
+    if (!canCreate || !isbn) return;
     setSaving(true);
     let replaced: Book | null = null; // the existing entry this save overrides, if any
     try {
@@ -130,7 +133,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         authorIds: savedAuthors.map((a) => a.id),
         tagIds: savedTags.map((t) => t.id),
       };
-      const target = fields.isbn ? await findBookByIsbn(fields.isbn) : null;
+      const target = await findBookByIsbn(isbn);
       replaced = target;
       if (target) await commands.db_crud.updateBook({ bookId: target.bookId, book });
       else await commands.db_crud.createBook({ book });
@@ -140,23 +143,35 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
       return;
     }
 
-    if (fields.isbn) {
-      try {
-        if (hasCover) await commands.covers.saveCover({ isbn: fields.isbn, source: cover.trim() });
-
-        // Covers are stored by ISBN, so an override can leave a cover with no matching book:
-        // the old entry's cover under a differently written ISBN, or the old cover when this
-        // save has none.
-        if (replaced) {
-          const stale = new Set<string>();
-          if (replaced.isbn && replaced.isbn !== fields.isbn) stale.add(replaced.isbn);
-          if (!hasCover) stale.add(fields.isbn);
-          for (const isbn of stale) await removeCover(isbn);
-        }
-      } catch (e) {
-        notify(`Book saved, but the cover couldn't be updated: ${String(e)}`, { severity: "warning" });
+    try {
+      if (hasCover) {
+        const source = cover.trim();
+        // Longer than the 30 s download timeout in Rust, so this only fires if the command
+        // never answers at all. The source kind (http / content / file / path) is in the
+        // message because it tells us which Rust branch is stuck.
+        const kind = /^([a-z][a-z0-9+.-]+):/i.exec(source)?.[1] ?? "path";
+        console.log(`saveCover: start, source kind=${kind}`);
+        await withTimeout(commands.covers.saveCover({ isbn, source }), 40_000, `saving the cover (${kind})`);
+        console.log("saveCover: done");
       }
+
+      // Covers are stored by ISBN, so an override can leave a cover with no matching book:
+      // the old entry's cover under a differently written ISBN, or the old cover when this
+      // save has none.
+      if (replaced) {
+        const stale = new Set<string>();
+        if (replaced.isbn && replaced.isbn !== isbn) stale.add(replaced.isbn);
+        if (!hasCover) stale.add(isbn);
+        for (const s of stale) await removeCover(s);
+      }
+    } catch (e) {
+      notify(`Book saved, but the cover couldn't be updated: ${String(e)}`, { severity: "warning", duration: 12000 });
     }
+
+    // Only now is the book AND its cover on disk. Tell the list to re-query and the affected
+    // cards to re-read their cover (before this, a card could mount, find no file yet, and
+    // never look again).
+    bumpLibrary([isbn, replaced?.isbn]);
     navigate(-1);
   };
 
@@ -219,9 +234,12 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
       <Box sx={{ display: "flex", gap: 2 }}>
         <TextField
           label="ISBN"
+          required
           fullWidth
           value={fields.isbn ?? ""}
           onChange={(e) => patch({ isbn: emptyToNull(e.target.value) })}
+          error={fields.isbn !== null && isbnInvalid}
+          helperText={fields.isbn !== null && isbnInvalid ? "10 or 13 characters (hyphens are fine)" : undefined}
         />
         <TextField
           label="Pages"
@@ -244,10 +262,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
       <CoverField
         value={cover}
         onChange={setCover}
-        error={coverNeedsIsbn}
-        helperText={
-          coverNeedsIsbn ? "Covers are copied and saved locally" : "Paste a link or choose a file"
-        }
+        helperText="Paste a link or choose a file. It's copied and saved locally"
         // mobile: tap to open the dedicated preview page
         onPreview={isMobile() && hasCover ? () => navigate(COVER_SEGMENT) : undefined}
       />
@@ -270,7 +285,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
           disabled={!canCreate}
           onClick={handleCreate}
         >
-          {existingBook ? "Override" : "Create"}
+          {saving ? "Saving…" : existingBook ? "Override" : "Create"}
         </Button>
       </Box>
     </Box>

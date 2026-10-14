@@ -11,6 +11,7 @@ import { commands } from "@/lib/commands";
 import type { Book, BookFilter } from "@/lib/types";
 import { emptyFilter } from "./searchQuery";
 import { notify } from "@/notifications/notify";
+import { useLibraryRevision } from "./libraryEvents";
 
 type LibraryState = {
   books: Book[];
@@ -27,6 +28,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
+  const revision = useLibraryRevision(); // bumped when a book was saved elsewhere (NewBook)
 
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
@@ -47,7 +49,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     return () => {
       stale = true;
     };
-  }, [filter, nonce]);
+  }, [filter, nonce, revision]);
 
   const value = useMemo(
     () => ({ books, loading, filter, setFilter, reload }),

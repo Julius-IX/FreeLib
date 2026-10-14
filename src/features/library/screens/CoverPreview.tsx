@@ -33,7 +33,7 @@ const MIME: Record<string, string> = {
  * Local file -> blob URL. The asset:// protocol can't be used: WebKitGTK refuses to load it
  * from the http dev origin, and on Android the picker returns content:// URIs it can't serve.
  */
-export function useLocalImage(path: string | null) {
+export function useLocalImage(path: string | null, version = 0) {
   const [state, setState] = useState<{ url: string | null; failed: boolean }>({
     url: null,
     failed: false,
@@ -52,7 +52,8 @@ export function useLocalImage(path: string | null) {
         objectUrl = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: MIME[ext] ?? "" }));
         setState({ url: objectUrl, failed: false });
       })
-      .catch(() => {
+      .catch((e) => {
+        console.error(`useLocalImage: couldn't read ${path}`, e);
         if (!cancelled) setState({ url: null, failed: true });
       });
 
@@ -60,7 +61,7 @@ export function useLocalImage(path: string | null) {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [path]);
+  }, [path, version]); // version: same path, new bytes (a cover was replaced)
 
   return state;
 }
