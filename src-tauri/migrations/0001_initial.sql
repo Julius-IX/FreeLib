@@ -14,6 +14,7 @@ CREATE TABLE series (
     name TEXT NOT NULL UNIQUE
 );
 
+-- Cover path is derived from the book's ISBN
 CREATE TABLE book (
     book_id INTEGER NOT NULL PRIMARY KEY,
     title TEXT NOT NULL,
