@@ -1,6 +1,6 @@
 import { RouteObject, Link, useNavigate, useParams } from "react-router-dom";
 import { Box, Button, Typography } from "@mui/material";
-import { RouteHandle } from "../../tabs";
+import { RouteHandle } from "@/tabs";
 
 function LibraryHome() {
   return (
