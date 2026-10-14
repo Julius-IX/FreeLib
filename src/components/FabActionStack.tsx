@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import Fab from '@mui/material/Fab';
 import Zoom from '@mui/material/Zoom';
 import Box from '@mui/material/Box';
-import AddIcon from '@mui/icons-material/Add';
+import TableRowsIcon from '@mui/icons-material/TableRows';
 import { useModalMounted } from '@util/modalMounted';
 
 export interface FabAction {
@@ -43,7 +43,7 @@ export default function FabActionStack({ actions }: { actions: FabAction[] }) {
           onClick={() => setOpen(true)}
           sx={{ position: 'absolute', right: 16, bottom: 16, zIndex: 2 }}
         >
-          <AddIcon />
+          <TableRowsIcon />
         </Fab>
       </Zoom>
 
