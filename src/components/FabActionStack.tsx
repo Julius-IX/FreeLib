@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Fab from '@mui/material/Fab';
 import Zoom from '@mui/material/Zoom';
 import Box from '@mui/material/Box';
 import AddIcon from '@mui/icons-material/Add';
+import { useModalMounted } from '@util/modalMounted';
 
 export interface FabAction {
   label: string;
@@ -12,23 +13,29 @@ export interface FabAction {
 
 export default function FabActionStack({ actions }: { actions: FabAction[] }) {
   const [open, setOpen] = useState(false);
+  const [held, setHeld] = useState(false);
+  const modalMounted = useModalMounted();
+
+  useEffect(() => {
+    if (held && modalMounted) setHeld(false);
+  }, [held, modalMounted]);
+
+  const scrimOn = open || (held && !modalMounted);
 
   return (
     <>
-      {/* click-away layer, scoped to the parent container */}
       <Box
         onClick={() => setOpen(false)}
         sx={{
           position: 'absolute',
           inset: 0,
           zIndex: 1,
-          backgroundColor: open ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)',
-          transition: 'background-color 200ms',
+          backgroundColor: scrimOn ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0)',
+          transition: held ? 'none' : 'background-color 200ms',
           pointerEvents: open ? 'auto' : 'none',
         }}
       />
 
-      {/* the + button, hidden while the stack is open */}
       <Zoom in={!open}>
         <Fab
           color="primary"
@@ -40,7 +47,6 @@ export default function FabActionStack({ actions }: { actions: FabAction[] }) {
         </Fab>
       </Zoom>
 
-      {/* the stack of buttons */}
       <Box
         sx={{
           position: 'absolute',
@@ -65,8 +71,10 @@ export default function FabActionStack({ actions }: { actions: FabAction[] }) {
               variant="extended"
               color="primary"
               onClick={() => {
+                setHeld(true);
                 setOpen(false);
                 a.onClick();
+                setTimeout(() => setHeld(false), 400);
               }}
             >
               {a.icon && <Box sx={{ display: 'flex', mr: 1 }}>{a.icon}</Box>}
