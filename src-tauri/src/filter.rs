@@ -292,3 +292,13 @@ async fn filter_books(pool: State<'_, SqlitePool>, filter: BookFilter) -> Res<Ve
   qb.push(" ORDER BY b.title COLLATE NOCASE");
   Ok(qb.build_query_as::<Book>().fetch_all(pool.inner()).await?)
 }
+
+#[command(db)]
+pub async fn series_exists(pool: State<'_, SqlitePool>, name: String) -> Res<bool> {
+  Ok(
+    sqlx::query_scalar::<_, bool>("SELECT EXISTS(SELECT 1 FROM series WHERE name = ?)")
+      .bind(name)
+      .fetch_one(pool.inner())
+      .await?,
+  )
+}

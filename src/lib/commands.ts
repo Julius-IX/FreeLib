@@ -10,6 +10,7 @@ export const commands = {
   },
   db: {
     filterBooks: (args: { filter: BookFilter }) => invoke<Book[]>("db__filter_books", args),
+    seriesExists: (args: { name: string }) => invoke<boolean>("db__series_exists", args),
   },
   db_crud: {
     createAuthor: (args: { author: AuthorInput }) => invoke<Author>("db_crud__create_author", args),
