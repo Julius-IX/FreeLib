@@ -1,146 +1,24 @@
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
-import {
-  Alert,
-  Autocomplete,
-  Box,
-  Button,
-  IconButton,
-  InputAdornment,
-  TextField,
-  createFilterOptions,
-} from "@mui/material";
+import { Alert, Box, Button, IconButton, TextField } from "@mui/material";
 import OptionalModal from "@/modal/OptionalModal";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import FolderOpenIcon from "@mui/icons-material/FolderOpen";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
+import { useEffect, useState } from "react";
 import { isMobile } from "@/util/misc";
 import { commands } from "@/lib/commands";
 import type { Book, BookInput } from "@/lib/types";
-import { TagField } from "@/components/TagField";
 import { notify } from "@/notifications/notify";
 import { COVER_SEGMENT, CoverPreviewCard, type CoverCtx } from "./CoverPreview";
-
-const emptyToNull = (s: string) => (s.trim() === "" ? null : s.trim());
-const numOrNull = (s: string) => (s.trim() === "" ? null : Number(s));
-
-// Hides the browser's up/down arrows on number inputs.
-const noSpinners = {
-  "& input[type=number]": { MozAppearance: "textfield" },
-  "& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button":
-    { WebkitAppearance: "none", margin: 0 },
-};
-
-/**
- * "2024-03-07", "2024/3/7" or "2024.03.07" -> "2024-03-07".
- * Empty -> null. Anything else, or a date that doesn't exist -> undefined (invalid).
- */
-function normalizeDate(text: string): string | null | undefined {
-  const t = text.trim();
-  if (!t) return null;
-  const m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(t);
-  if (!m) return undefined;
-  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
-  const dt = new Date(Date.UTC(y, mo - 1, d));
-  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return undefined;
-  return `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-}
-
-// Not every webview can open the native date picker; without it the field is type-only.
-const canShowPicker = typeof HTMLInputElement !== "undefined" && "showPicker" in HTMLInputElement.prototype;
-
-/**
- * An author / tag / series the user picked. `id: null` means it doesn't exist yet:
- * it's only written to the database when the book itself is created.
- */
-type Choice = { id: number | null; name: string };
-type Saved = { id: number; name: string };
-
-const choiceKey = (c: Choice) => c.id ?? `new:${c.name.toLowerCase()}`;
-const toDraft = (text: string): Choice | null => {
-  const name = text.trim();
-  return name ? { id: null, name } : null;
-};
-
-/**
- * Turns every choice into a saved row (in order) and returns the list with real ids.
- * A draft whose name already exists (e.g. prefilled from a scan) reuses that row instead of
- * creating a duplicate, and the same row is never returned twice.
- */
-async function saveNew<T extends { name: string }>(
-  list: Choice[],
-  loadExisting: () => Promise<T[]>,
-  idOf: (row: T) => number,
-  create: (name: string) => Promise<number>
-): Promise<Saved[]> {
-  const existing = list.some((c) => c.id === null) ? await loadExisting() : [];
-  const out: Saved[] = [];
-  for (const c of list) {
-    let id = c.id;
-    if (id === null) {
-      const hit = existing.find((e) => e.name.toLowerCase() === c.name.toLowerCase());
-      id = hit ? idOf(hit) : await create(c.name);
-    }
-    if (!out.some((o) => o.id === id)) out.push({ id, name: c.name });
-  }
-  return out;
-}
-
-/**
- * A prefilled author / tag / series. `{ name }` is matched against what's already in the
- * library when the book is created (reused if found, created if not). Add `id` if there already
- * is an existing row.
- */
-export type DraftRef = { id?: number | null; name: string };
-
-export type BookDraft = {
-  title?: string;
-  isbn?: string | null;
-  publishDate?: string | null; // YYYY-MM-DD
-  blurb?: string | null;
-  pageCount?: number | null;
-  authors?: DraftRef[];
-  tags?: DraftRef[];
-  series?: DraftRef | null;
-  seriesPosition?: number | null;
-  cover?: string | null; // link or local file path
-};
+import { ChoicesField, loadAuthors, loadTags } from "../book-form/ChoicesField";
+import { CoverField } from "../book-form/CoverField";
+import { DateField } from "../book-form/DateField";
+import { SeriesField } from "../book-form/SeriesField";
+import { toChoice, toChoices } from "../book-form/choice";
+import { emptyToNull, noSpinners, normalizeDate, numOrNull } from "../book-form/inputs";
+import { defaultTagTypeId, findBookByIsbn, removeCover, saveNew } from "../book-form/persistence";
+import type { BookDraft, BookFields, Choice } from "../book-form/types";
 
 /** Router state shape, for `navigate(LibraryPath.AddBook, { state: { initial } satisfies NewBookState })`. */
 export type NewBookState = { initial?: BookDraft };
-
-const toChoice = (r: DraftRef): Choice => ({ id: r.id ?? null, name: r.name.trim() });
-const toChoices = (refs: DraftRef[] | undefined): Choice[] => {
-  const seen = new Set<string | number>();
-  return (refs ?? [])
-    .map(toChoice)
-    .filter((c) => c.name !== "" && !seen.has(choiceKey(c)) && !!seen.add(choiceKey(c)));
-};
-
-// A tag needs a tag type. New tags go under the first existing type, or a "General" one.
-async function defaultTagTypeId() {
-  const types = await commands.db_crud.listTagTypes();
-  return types[0]?.tagTypeId ?? (await commands.db_crud.createTagType({ name: "General" })).tagTypeId;
-}
-
-const normIsbn = (s: string) => s.replace(/[\s-]/g, "").toUpperCase(); // 978-0-... == 9780...
-
-/** The book already using this ISBN, if any. (There's no ISBN filter, so list and match.) */
-async function findBookByIsbn(isbn: string): Promise<Book | null> {
-  const want = normIsbn(isbn);
-  if (!want) return null;
-  const books = await commands.db_crud.listBooks();
-  return books.find((b) => b.isbn && normIsbn(b.isbn) === want) ?? null;
-}
-
-/** Deletes the saved cover for this ISBN, if there is one. */
-async function removeCover(isbn: string) {
-  if (await commands.covers.getCoverPath({ isbn })) await commands.covers.deleteCover({ isbn });
-}
-
-type Fields = Omit<BookInput, "authorIds" | "tagIds" | "seriesId" | "publishDate">;
 
 /**
  * `initial` prefills the form (all of it optional). It can be passed as a prop or, since this
@@ -153,7 +31,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const seed: BookDraft = initial ?? (location.state as NewBookState | null)?.initial ?? {};
   const [saving, setSaving] = useState(false);
 
-  const [fields, setFields] = useState<Fields>(() => ({
+  const [fields, setFields] = useState<BookFields>(() => ({
     title: seed.title ?? "",
     isbn: seed.isbn?.trim() || null,
     blurb: seed.blurb || null,
@@ -191,7 +69,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
     };
   }, [fields.isbn]);
 
-  const patch = (changes: Partial<Fields>) => setFields((f) => ({ ...f, ...changes }));
+  const patch = (changes: Partial<BookFields>) => setFields((f) => ({ ...f, ...changes }));
 
   // Mobile only: the nested `cover` route. While it's open the form is hidden, not unmounted,
   // so everything typed so far survives.
@@ -407,213 +285,5 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         {!isMobile() && hasCover && <CoverPreviewCard source={cover} />}
       </Box>
     </OptionalModal>
-  );
-}
-
-/** Type a date (YYYY-MM-DD) or, where the webview supports it, pick one from the calendar button. */
-function DateField({
-  value,
-  onChange,
-  invalid,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  invalid: boolean;
-}) {
-  const [touched, setTouched] = useState(invalid); // no error while still typing, but show a bad prefill right away
-  const pickerRef = useRef<HTMLInputElement>(null);
-  const showError = touched && invalid;
-
-  return (
-    <TextField
-      label="Publish date"
-      placeholder="YYYY-MM-DD"
-      fullWidth
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onBlur={() => setTouched(true)}
-      error={showError}
-      helperText={showError ? "Use the format YYYY-MM-DD" : undefined}
-      slotProps={{
-        input: {
-          endAdornment: canShowPicker ? (
-            <InputAdornment position="end" sx={{ position: "relative" }}>
-              <IconButton
-                aria-label="Pick a date"
-                edge="end"
-                onClick={() => {
-                  try {
-                    pickerRef.current?.showPicker();
-                  } catch {
-                    /* picker unavailable right now, typing still works */
-                  }
-                }}
-              >
-                <CalendarMonthIcon />
-              </IconButton>
-              {/* invisible native input, only here to open the calendar and hand back a date */}
-              <input
-                ref={pickerRef}
-                type="date"
-                value={normalizeDate(value) ?? ""}
-                onChange={(e) => onChange(e.target.value)}
-                tabIndex={-1}
-                aria-hidden
-                style={{ position: "absolute", right: 0, bottom: 0, width: 1, height: 1, opacity: 0, pointerEvents: "none" }}
-              />
-            </InputAdornment>
-          ) : undefined,
-        },
-      }}
-    />
-  );
-}
-
-function CoverField({
-  value,
-  onChange,
-  error,
-  helperText,
-  onPreview,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  error?: boolean;
-  helperText?: string;
-  onPreview?: () => void;
-}) {
-  const pickFile = async () => {
-    try {
-      const picked = await open({
-        multiple: false,
-        directory: false,
-        filters: [{ name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }],
-      });
-      if (typeof picked === "string") onChange(picked);
-    } catch (e) {
-      notify(`Couldn't open the file picker: ${String(e)}`, { severity: "error" });
-    }
-  };
-
-  return (
-    <TextField
-      label="Cover (link or file)"
-      fullWidth
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      error={error}
-      helperText={helperText}
-      slotProps={{
-        input: {
-          endAdornment: (
-            <InputAdornment position="end">
-              {onPreview && (
-                <IconButton aria-label="Preview cover" onClick={onPreview}>
-                  <VisibilityIcon />
-                </IconButton>
-              )}
-              <IconButton aria-label="Choose file" onClick={pickFile} edge="end">
-                <FolderOpenIcon />
-              </IconButton>
-            </InputAdornment>
-          ),
-        },
-      }}
-    />
-  );
-}
-
-// Module-level so their identity is stable for ChoicesField's effect.
-const loadAuthors = async (): Promise<Choice[]> =>
-  (await commands.db_crud.listAuthors()).map((a) => ({ id: a.authorId, name: a.name }));
-const loadTags = async (): Promise<Choice[]> =>
-  (await commands.db_crud.listTags()).map((t) => ({ id: t.tagId, name: t.name }));
-
-/** Chips field for authors / tags. Typed names become drafts (id: null), nothing is saved here. */
-function ChoicesField({
-  label,
-  load,
-  value,
-  onChange,
-  confirmOnSpace,
-  removeOnClick,
-}: {
-  label: string;
-  load: () => Promise<Choice[]>;
-  value: Choice[];
-  onChange: (next: Choice[]) => void;
-  confirmOnSpace?: boolean;
-  removeOnClick?: boolean;
-}) {
-  const [options, setOptions] = useState<Choice[]>([]);
-  useEffect(() => {
-    load()
-      .then(setOptions)
-      .catch((e) => notify(`Couldn't load ${label.toLowerCase()}: ${String(e)}`, { severity: "error" }));
-  }, [load, label]);
-
-  return (
-    <TagField<Choice>
-      label={label}
-      options={options}
-      value={value}
-      onChange={onChange}
-      getLabel={(c) => c.name}
-      getKey={choiceKey}
-      parseInput={toDraft}
-      confirmOnSpace={confirmOnSpace}
-      removeOnClick={removeOnClick}
-    />
-  );
-}
-
-type CreateOption = { inputValue: string };
-type SeriesOption = Choice | CreateOption;
-const isCreate = (o: SeriesOption): o is CreateOption => "inputValue" in o;
-const filter = createFilterOptions<SeriesOption>();
-
-function SeriesField({ value, onChange }: { value: Choice | null; onChange: (c: Choice | null) => void }) {
-  const [existing, setExisting] = useState<Choice[]>([]);
-  useEffect(() => {
-    commands.db_crud
-      .listSeries()
-      .then((list) => setExisting(list.map((s) => ({ id: s.seriesId, name: s.name }))))
-      .catch((e) => notify(`Couldn't load series: ${String(e)}`, { severity: "error" }));
-  }, []);
-
-  // a draft isn't in the loaded list; add it so MUI can find the selected value
-  const options = useMemo(
-    () => (value && value.id === null ? [...existing, value] : existing),
-    [existing, value]
-  );
-
-  return (
-    <Autocomplete<SeriesOption, false, false, false>
-      options={options}
-      value={value}
-      onChange={(_, next) => {
-        if (next === null) onChange(null);
-        else if (isCreate(next)) onChange({ id: null, name: next.inputValue });
-        else onChange(next);
-      }}
-      filterOptions={(opts, params) => {
-        const filtered = filter(opts, params);
-        const text = params.inputValue.trim();
-        const exists = opts.some((o) => !isCreate(o) && o.name.toLowerCase() === text.toLowerCase());
-        if (text && !exists) filtered.push({ inputValue: text });
-        return filtered;
-      }}
-      getOptionLabel={(o) => (isCreate(o) ? o.inputValue : o.name)}
-      isOptionEqualToValue={(a, b) => !isCreate(a) && !isCreate(b) && choiceKey(a) === choiceKey(b)}
-      renderOption={(props, o) => {
-        const { key, ...rest } = props;
-        return (
-          <li key={key} {...rest}>
-            {isCreate(o) ? `Create "${o.inputValue}"` : o.name}
-          </li>
-        );
-      }}
-      renderInput={(params) => <TextField {...params} label="Series" />}
-    />
   );
 }
