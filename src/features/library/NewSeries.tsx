@@ -90,7 +90,6 @@ export default function NewSeries() {
         />
 
         <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
-          <Button onClick={() => navigate(-1)}>Cancel</Button>
           <Button variant="contained" disabled={!canCreate} onClick={handleCreate}>
             Create
           </Button>
