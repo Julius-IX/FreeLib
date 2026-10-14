@@ -6,7 +6,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import { isDesktop, isMobile, once } from "@/util/misc";
 import { RouteHandle } from "@/app/tabs";
-import NewSeries from "./screens/NewSeries";
+import UpdateFilterFields from "./screens/UpdateFilterFields";
 import NewBook from "./screens/NewBook";
 import CoverPreviewPage, { COVER_SEGMENT } from "./screens/CoverPreview";
 import TopBar from "./components/TopBar";
@@ -27,7 +27,7 @@ function LibraryHome() {
 
   const actions = [
     { label: 'Add Book', icon: <BookIcon />, onClick: () => navigate(LibraryPath.AddBook) },
-    { label: 'New Series', icon: <FolderIcon />, onClick: () => navigate(LibraryPath.NewSeries) },
+    { label: 'Update Filter Fields', icon: <FolderIcon />, onClick: () => navigate(LibraryPath.UpdateFilterFields) },
   ];
   if (isMobile()) {
     actions.splice(1, 0, { label: 'Scan Book', icon: <QrCodeScannerIcon />, onClick: () => navigate(LibraryPath.Scan) });
@@ -58,7 +58,7 @@ function ScanBook() {
 
 export const LibraryPath = {
   Scan: "scan",
-  NewSeries: "new-series",
+  UpdateFilterFields: "update-filter-fields",
   AddBook: "add-book",
   /** Nested under AddBook, mobile only: add-book/cover */
   Cover: COVER_SEGMENT,
@@ -87,6 +87,6 @@ const addBookRoute = once((): RouteObject =>
 export const libraryRoutes: RouteObject[] = [
   { index: true, element: <LibraryHomeWrapper /> },
   { path: LibraryPath.Scan, element: <ScanBook />, handle: { hideNav: isMobile() } satisfies RouteHandle },
-  { path: LibraryPath.NewSeries, element: <NewSeries />, handle: { hideNav: isMobile(), modal: isDesktop() } satisfies RouteHandle },
+  { path: LibraryPath.UpdateFilterFields, element: <UpdateFilterFields />, handle: { hideNav: isMobile(), modal: isDesktop() } satisfies RouteHandle },
   addBookRoute(),
 ];
