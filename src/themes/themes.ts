@@ -10,6 +10,16 @@ const base: ThemeOptions = {
       defaultProps: { disableElevation: true },
       styleOverrides: { root: { borderRadius: 999, textTransform: "none" } },
     },
+    // With a 16px corner radius the outline's arc runs under the start of a floated
+    // label. Start the notch after the arc (16px) and move the floated label to match.
+    MuiOutlinedInput: {
+      styleOverrides: { notchedOutline: { paddingLeft: 16 } },
+    },
+    MuiInputLabel: {
+      styleOverrides: {
+        outlined: { "&.MuiInputLabel-shrink": { transform: "translate(22px, -9px) scale(0.75)" } },
+      },
+    },
   },
 };
 
