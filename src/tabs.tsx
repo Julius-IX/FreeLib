@@ -8,7 +8,8 @@ import { browseRoutes } from "./features/browse/routes";
 import { settingsRoutes } from "./features/settings/routes";
 
 // Put on a route to control the bar:  handle: { hideNav: true }
-export type RouteHandle = { hideNav?: boolean };
+// Put modal: true to render the route as an overlay on top of the previous page
+export type RouteHandle = { hideNav?: boolean; modal?: boolean };
 
 export type Tab = {
   id: string; // also the URL segment: /library, /browse, ...

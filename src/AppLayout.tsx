@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip,
-  BottomNavigation, BottomNavigationAction, Paper, useMediaQuery, useTheme,
+  BottomNavigation, BottomNavigationAction, Paper, useTheme,
 } from "@mui/material";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { Tab, RouteHandle, tabs } from "./tabs";
 import { isMobile } from "@util/misc";
+import ModalHost from "./ModalHost";
 
 const SIDEBAR_MIN = 72; // icon-only rail
 const SIDEBAR_MAX = 400;
@@ -16,7 +17,11 @@ const clamp = (n: number) => Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, n));
 type TabRouter = ReturnType<typeof createMemoryRouter>;
 
 // Every tab gets its OWN router (its own history stack), independent of the others
-const makeRouter = (t: Tab) => createMemoryRouter(t.routes, { initialEntries: ["/"] });
+const makeRouter = (t: Tab) =>
+  createMemoryRouter(
+    [{ element: <ModalHost routes={t.routes} />, children: t.routes }],
+    { initialEntries: ["/"] }
+  );
 
 const atRoot = (r: TabRouter) => r.state.location.key === "default";
 
