@@ -167,7 +167,7 @@ pub fn expand(input: DeriveInput) -> syn::Result<TokenStream> {
           lines.push(quote!(::std::format!("  {}: {};\n", #k, #ty_expr)));
         }
         quote! {{
-            let mut s = ::std::format!("export interface {} {{\n", #name);
+            let mut s = ::std::format!("export type {} = {{\n", #name);
             #( s += &#lines; )*
             s += "}";
             s
