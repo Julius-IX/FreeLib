@@ -13,13 +13,14 @@ import { CoverField } from "../book-form/CoverField";
 import { DateField } from "../book-form/DateField";
 import { SeriesField } from "../book-form/SeriesField";
 import { toChoice, toChoices } from "../book-form/choice";
-import { emptyToNull, isValidIsbn, noSpinners, normalizeDate, numOrNull } from "../book-form/inputs";
+import { emptyToNull, isValidIsbn, noSpinners, normIsbn, normalizeDate, numOrNull } from "../book-form/inputs";
 import { defaultTagTypeId, findBookByIsbn, removeCover, saveNew, withTimeout } from "../book-form/persistence";
 import type { BookDraft, BookFields, Choice } from "../book-form/types";
 import { bumpLibrary } from "../libraryEvents";
 
 /** Router state shape, for `navigate(LibraryPath.AddBook, { state: { initial } satisfies NewBookState })`. */
-export type NewBookState = { initial?: BookDraft };
+/** `editBookId` switches the form to editing that book (by id, so its ISBN can change too). */
+export type NewBookState = { initial?: BookDraft; editBookId?: number };
 
 /**
  * `initial` prefills the form (all of it optional). It can be passed as a prop or, since this
@@ -29,7 +30,10 @@ export type NewBookState = { initial?: BookDraft };
 export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
-  const seed: BookDraft = initial ?? (location.state as NewBookState | null)?.initial ?? {};
+  const routeState = location.state as NewBookState | null;
+  const seed: BookDraft = initial ?? routeState?.initial ?? {};
+  const editId = routeState?.editBookId ?? null; // set = editing that book, not adding
+  const editing = editId !== null;
   const [saving, setSaving] = useState(false);
 
   const [fields, setFields] = useState<BookFields>(() => ({
@@ -43,6 +47,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const [tags, setTags] = useState<Choice[]>(() => toChoices(seed.tags));
   const [series, setSeries] = useState<Choice | null>(() => (seed.series ? toChoice(seed.series) : null));
   const [cover, setCover] = useState(seed.cover ?? ""); // link or local path
+  const [initialCover] = useState(() => (seed.cover ?? "").trim()); // when editing: the cover already on disk
   // what the user typed or picked; a valid prefilled date is normalized, an invalid one is kept
   // as is so the error shows
   const [dateText, setDateText] = useState(() => {
@@ -50,7 +55,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
     return normalizeDate(raw) ?? raw;
   });
 
-  // Set while the typed ISBN belongs to a book that's already in the library
+  // Set while the typed ISBN belongs to another book that's already in the library
   const [existingBook, setExistingBook] = useState<Book | null>(null);
   useEffect(() => {
     const isbn = fields.isbn;
@@ -61,14 +66,14 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
     let cancelled = false;
     const timer = setTimeout(() => {
       findBookByIsbn(isbn)
-        .then((b) => !cancelled && setExistingBook(b))
+        .then((b) => !cancelled && setExistingBook(b && b.bookId !== editId ? b : null))
         .catch(() => !cancelled && setExistingBook(null));
     }, 400);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [fields.isbn]);
+  }, [fields.isbn, editId]);
 
   const patch = (changes: Partial<BookFields>) => setFields((f) => ({ ...f, ...changes }));
 
@@ -81,7 +86,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const isbnInvalid = fields.isbn === null || !isValidIsbn(fields.isbn);
   const publishDate = normalizeDate(dateText); // undefined = not a valid date
   const dateInvalid = publishDate === undefined;
-  const canCreate = fields.title.trim() !== "" && !isbnInvalid && !dateInvalid && !saving;
+  const canCreate = fields.title.trim() !== "" && !isbnInvalid && !dateInvalid && !saving && !(editing && existingBook);
 
   const handleCreate = async () => {
     const isbn = fields.isbn;
@@ -133,7 +138,13 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         authorIds: savedAuthors.map((a) => a.id),
         tagIds: savedTags.map((t) => t.id),
       };
-      const target = await findBookByIsbn(isbn);
+      const byIsbn = await findBookByIsbn(isbn);
+      let target = byIsbn;
+      if (editId !== null) {
+        // editing: the target is the book being edited, whatever its ISBN is now
+        if (byIsbn && byIsbn.bookId !== editId) throw new Error("another book already uses this ISBN");
+        target = await commands.db_crud.getBook({ bookId: editId });
+      }
       replaced = target;
       if (target) await commands.db_crud.updateBook({ bookId: target.bookId, book });
       else await commands.db_crud.createBook({ book });
@@ -144,7 +155,13 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
     }
 
     try {
-      if (hasCover) {
+      if (editing && hasCover && cover.trim() === initialCover) {
+        // Unchanged saved cover: re-saving would copy the file onto itself. It only needs to
+        // follow the book if the ISBN changed (the old one is cleaned up below).
+        if (replaced?.isbn && normIsbn(replaced.isbn) !== normIsbn(isbn)) {
+          await withTimeout(commands.covers.saveCover({ isbn, source: initialCover }), 40_000, "moving the cover");
+        }
+      } else if (hasCover) {
         const source = cover.trim();
         // Longer than the 30 s download timeout in Rust, so this only fires if the command
         // never answers at all. The source kind (http / content / file / path) is in the
@@ -160,7 +177,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
       // save has none.
       if (replaced) {
         const stale = new Set<string>();
-        if (replaced.isbn && replaced.isbn !== isbn) stale.add(replaced.isbn);
+        if (replaced.isbn && normIsbn(replaced.isbn) !== normIsbn(isbn)) stale.add(replaced.isbn);
         if (!hasCover) stale.add(isbn);
         for (const s of stale) await removeCover(s);
       }
@@ -252,7 +269,10 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         />
       </Box>
 
-      {existingBook && (
+      {existingBook && editing && (
+        <Alert severity="error">"{existingBook.title}" already uses this ISBN. Use a different one to save.</Alert>
+      )}
+      {existingBook && !editing && (
         <Alert severity="warning">
           "{existingBook.title}" already uses this ISBN. Saving will override that entry, and any
           field left blank here will be cleared on it.
@@ -285,7 +305,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
           disabled={!canCreate}
           onClick={handleCreate}
         >
-          {saving ? "Saving…" : existingBook ? "Override" : "Create"}
+          {saving ? "Saving…" : editing ? "Save" : existingBook ? "Override" : "Create"}
         </Button>
       </Box>
     </Box>

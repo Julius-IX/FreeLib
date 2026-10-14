@@ -12,7 +12,7 @@ import { isValidIsbn } from "../book-form/inputs";
  * Path of the saved cover for this ISBN, or null if there isn't one. `rev` changes when a cover
  * for this ISBN was saved or removed, so a card that mounted before the file existed asks again.
  */
-function useCoverPath(isbn: string | null | undefined, rev: number) {
+export function useCoverPath(isbn: string | null | undefined, rev: number) {
   const [path, setPath] = useState<string | null>(null);
 
   useEffect(() => {
