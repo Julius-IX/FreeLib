@@ -1,5 +1,6 @@
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import {
+  Alert,
   Autocomplete,
   Box,
   Button,
@@ -17,7 +18,7 @@ import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { isOnMobile } from "@/App";
 import { commands } from "@/lib/commands";
-import type { BookInput } from "@/lib/types";
+import type { Book, BookInput } from "@/lib/types";
 import { TagField } from "@components/TagField";
 import { notify } from "@/util/notify";
 import { COVER_SEGMENT, CoverPreviewCard, type CoverCtx } from "./CoverPreview";
@@ -124,6 +125,21 @@ async function defaultTagTypeId() {
   return types[0]?.tagTypeId ?? (await commands.db_crud.createTagType({ name: "General" })).tagTypeId;
 }
 
+const normIsbn = (s: string) => s.replace(/[\s-]/g, "").toUpperCase(); // 978-0-... == 9780...
+
+/** The book already using this ISBN, if any. (There's no ISBN filter, so list and match.) */
+async function findBookByIsbn(isbn: string): Promise<Book | null> {
+  const want = normIsbn(isbn);
+  if (!want) return null;
+  const books = await commands.db_crud.listBooks();
+  return books.find((b) => b.isbn && normIsbn(b.isbn) === want) ?? null;
+}
+
+/** Deletes the saved cover for this ISBN, if there is one. */
+async function removeCover(isbn: string) {
+  if (await commands.covers.getCoverPath({ isbn })) await commands.covers.deleteCover({ isbn });
+}
+
 type Fields = Omit<BookInput, "authorIds" | "tagIds" | "seriesId" | "publishDate">;
 
 /**
@@ -156,6 +172,26 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
     return normalizeDate(raw) ?? raw;
   });
 
+  // Set while the typed ISBN belongs to a book that's already in the library
+  const [existingBook, setExistingBook] = useState<Book | null>(null);
+  useEffect(() => {
+    const isbn = fields.isbn;
+    if (!isbn) {
+      setExistingBook(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      findBookByIsbn(isbn)
+        .then((b) => !cancelled && setExistingBook(b))
+        .catch(() => !cancelled && setExistingBook(null));
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [fields.isbn]);
+
   const patch = (changes: Partial<Fields>) => setFields((f) => ({ ...f, ...changes }));
 
   // Mobile only: the nested `cover` route. While it's open the form is hidden, not unmounted,
@@ -171,6 +207,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const handleCreate = async () => {
     if (!canCreate) return;
     setSaving(true);
+    let replaced: Book | null = null; // the existing entry this save overrides, if any
     try {
       // Nothing is written until now. State is updated after each step, so if a later
       // step fails and the user retries, what was already saved isn't created again.
@@ -207,28 +244,40 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         : null;
       setSeries(savedSeries);
 
-      await commands.db_crud.createBook({
-        book: {
-          ...fields,
-          title: fields.title.trim(),
-          publishDate: publishDate ?? null,
-          seriesId: savedSeries?.id ?? null,
-          seriesPosition: savedSeries ? fields.seriesPosition : null,
-          authorIds: savedAuthors.map((a) => a.id),
-          tagIds: savedTags.map((t) => t.id),
-        },
-      });
+      const book: BookInput = {
+        ...fields,
+        title: fields.title.trim(),
+        publishDate: publishDate ?? null,
+        seriesId: savedSeries?.id ?? null,
+        seriesPosition: savedSeries ? fields.seriesPosition : null,
+        authorIds: savedAuthors.map((a) => a.id),
+        tagIds: savedTags.map((t) => t.id),
+      };
+      const target = fields.isbn ? await findBookByIsbn(fields.isbn) : null;
+      replaced = target;
+      if (target) await commands.db_crud.updateBook({ bookId: target.bookId, book });
+      else await commands.db_crud.createBook({ book });
     } catch (e) {
       setSaving(false);
-      notify(`Couldn't create book: ${String(e)}`, { severity: "error" });
+      notify(`Couldn't save book: ${String(e)}`, { severity: "error" });
       return;
     }
 
-    if (hasCover && fields.isbn) {
+    if (fields.isbn) {
       try {
-        await commands.covers.saveCover({ isbn: fields.isbn, source: cover.trim() });
+        if (hasCover) await commands.covers.saveCover({ isbn: fields.isbn, source: cover.trim() });
+
+        // Covers are stored by ISBN, so an override can leave a cover with no matching book:
+        // the old entry's cover under a differently written ISBN, or the old cover when this
+        // save has none.
+        if (replaced) {
+          const stale = new Set<string>();
+          if (replaced.isbn && replaced.isbn !== fields.isbn) stale.add(replaced.isbn);
+          if (!hasCover) stale.add(fields.isbn);
+          for (const isbn of stale) await removeCover(isbn);
+        }
       } catch (e) {
-        notify(`Book created, but the cover couldn't be saved: ${String(e)}`, { severity: "warning" });
+        notify(`Book saved, but the cover couldn't be updated: ${String(e)}`, { severity: "warning" });
       }
     }
     navigate(-1);
@@ -308,6 +357,13 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         />
       </Box>
 
+      {existingBook && (
+        <Alert severity="warning">
+          "{existingBook.title}" already uses this ISBN. Saving will override that entry, and any
+          field left blank here will be cleared on it.
+        </Alert>
+      )}
+
       <CoverField
         value={cover}
         onChange={setCover}
@@ -331,8 +387,13 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
       />
 
       <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
-        <Button variant="contained" disabled={!canCreate} onClick={handleCreate}>
-          Create
+        <Button
+          variant="contained"
+          color={existingBook ? "warning" : "primary"}
+          disabled={!canCreate}
+          onClick={handleCreate}
+        >
+          {existingBook ? "Override" : "Create"}
         </Button>
       </Box>
     </Box>
