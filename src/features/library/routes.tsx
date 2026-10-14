@@ -12,6 +12,8 @@ import CoverPreviewPage, { COVER_SEGMENT } from "./screens/CoverPreview";
 import TopBar from "./components/TopBar";
 import { LibraryProvider, useLibrary } from "./LibraryContext";
 import CardGrid from "./components/CardGrid";
+import BookView from "./screens/BookView";
+import { Book } from "@/lib/types";
 
 function LibraryHomeWrapper() {
   return (
@@ -33,10 +35,12 @@ function LibraryHome() {
     actions.splice(1, 0, { label: 'Scan Book', icon: <QrCodeScannerIcon />, onClick: () => navigate(LibraryPath.Scan) });
   }
 
+  const onBookClick = (book: Book) => navigate(bookView(book));
+
   return (
     <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <TopBar />
-      <CardGrid items={books} />
+      <CardGrid items={books} onOpen={onBookClick} />
       <FabActionStack
         actions={actions}
       />
@@ -60,9 +64,12 @@ export const LibraryPath = {
   Scan: "scan",
   UpdateFilterFields: "update-filter-fields",
   AddBook: "add-book",
+  ViewBook: "view-book/:bookId",
   /** Nested under AddBook, mobile only: add-book/cover */
   Cover: COVER_SEGMENT,
 } as const;
+
+export const bookView = (book: Book) => `view-book/${book.bookId}`;
 
 export type LibraryPath = (typeof LibraryPath)[keyof typeof LibraryPath];
 
@@ -88,5 +95,6 @@ export const libraryRoutes: RouteObject[] = [
   { index: true, element: <LibraryHomeWrapper /> },
   { path: LibraryPath.Scan, element: <ScanBook />, handle: { hideNav: isMobile() } satisfies RouteHandle },
   { path: LibraryPath.UpdateFilterFields, element: <UpdateFilterFields />, handle: { hideNav: isMobile(), modal: isDesktop() } satisfies RouteHandle },
+  { path: LibraryPath.ViewBook, element: <BookView />, handle: { hideNav: isMobile() } satisfies RouteHandle },
   addBookRoute(),
 ];
