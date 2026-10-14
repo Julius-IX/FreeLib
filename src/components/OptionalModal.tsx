@@ -1,14 +1,25 @@
-import { ReactNode, useContext, useLayoutEffect } from "react";
-import { Dialog, DialogProps } from "@mui/material";
+import { forwardRef, ReactElement, ReactNode, Ref, useContext, useLayoutEffect } from "react";
+import { Dialog, DialogProps, Slide } from "@mui/material";
+import { TransitionProps } from "@mui/material/transitions";
 import { useNavigate } from "react-router-dom";
 import { ModalContext } from "@/ModalHost";
 import { setModalMounted } from "@util/modalMounted";
 
+const SlideUp = forwardRef(function SlideUp(
+  props: TransitionProps & { children: ReactElement },
+  ref: Ref<unknown>,
+) {
+  return <Slide direction="up" ref={ref} {...props} />;
+});
+
 export default function OptionalModal({
   children,
   slotProps,
+  slots,
+  sx,
+  bottomSheet = false,
   ...props
-}: { children: ReactNode } & Omit<DialogProps, "open" | "onClose">) {
+}: { children: ReactNode; bottomSheet?: boolean } & Omit<DialogProps, "open" | "onClose">) {
   const navigate = useNavigate();
   const { isModal, closing, onExited } = useContext(ModalContext);
 
@@ -26,6 +37,26 @@ export default function OptionalModal({
       disableScrollLock
       open={!closing}
       onClose={() => navigate(-1)}
+      slots={{
+        ...slots,
+        ...(bottomSheet && { transition: SlideUp }),
+      }}
+      sx={[
+        bottomSheet && {
+          position: props.container ? "absolute" : undefined,
+          "& .MuiDialog-container": { alignItems: "flex-end" },
+          "& .MuiDialog-paper": {
+            backgroundColor: "background.paper",
+            m: 0,
+            width: "100%",
+            maxWidth: "none",
+            maxHeight: "100%",
+            borderBottomLeftRadius: 0,
+            borderBottomRightRadius: 0,
+          },
+        },
+        ...(Array.isArray(sx) ? sx : [sx]),
+      ]}
       slotProps={{
         ...slotProps,
         backdrop: {
