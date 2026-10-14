@@ -74,3 +74,6 @@ export const themeNames = Object.keys(defs) as ThemeName[];
 export const themes = Object.fromEntries(
   themeNames.map((n) => [n, { light: make("light", defs[n].light), dark: make("dark", defs[n].dark) }])
 ) as Record<ThemeName, Record<Mode, Theme>>;
+
+export const themeLabel = (n: ThemeName) =>
+  n.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
