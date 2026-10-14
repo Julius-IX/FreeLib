@@ -9,9 +9,11 @@ fn on_startup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-  // Regenerates the frontend bindings (commands.ts + types.ts) on every dev
-  // launch. Also runnable without launching the app: `cargo test export_bindings`.
-  #[cfg(debug_assertions)]
+  // Regenerates the frontend bindings (commands.ts + types.ts) on every
+  // desktop dev launch. Skipped on mobile: the app runs on the device, where
+  // the baked-in project path doesn't exist / is read-only. Also runnable
+  // without launching the app: `cargo test export_bindings`.
+  #[cfg(all(debug_assertions, desktop))]
   export_bindings();
 
   tauri::Builder::default()
@@ -23,7 +25,7 @@ pub fn run() {
     .expect("error while running tauri application");
 }
 
-#[cfg(any(debug_assertions, test))]
+#[cfg(any(all(debug_assertions, desktop), test))]
 fn export_bindings() {
   tauri_groups::export_ts(concat!(env!("CARGO_MANIFEST_DIR"), "/../src/lib"))
     .expect("failed to write src/lib/{commands,types}.ts");
