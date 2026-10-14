@@ -27,6 +27,7 @@ export default function CardGrid({
         minHeight: 0,
       }}
     >
+      { /* TODO: move this into settings */ }
       <Slider
         value={columns}
         onChange={(_, v) => setColumns(v as number)}

@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { Box, Chip, Typography, IconButton } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
-import FilterListIcon from "@mui/icons-material/FilterList";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { notify } from "@/notifications/notify";
 import { isDesktop } from "@/util/misc";
 import { useLibrary } from "../LibraryContext";
 import SearchField from "./SearchField";
@@ -51,11 +49,6 @@ export default function TopBar() {
             <SearchIcon />
           </IconButton>
         )}
-
-        {/* TODO: add button action */}
-        <IconButton onClick={() => notify("beep boop searching activated")}>
-          <FilterListIcon />
-        </IconButton>
       </Box>
     </Box>
   );
