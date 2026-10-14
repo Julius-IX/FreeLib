@@ -6,15 +6,22 @@ import { normalizeDate } from "./inputs";
 // Not every webview can open the native date picker; without it the field is type-only.
 const canShowPicker = typeof HTMLInputElement !== "undefined" && "showPicker" in HTMLInputElement.prototype;
 
-/** Type a date (YYYY-MM-DD) or, where the webview supports it, pick one from the calendar button. */
+/**
+ * Type a date (YYYY-MM-DD) or, where the webview supports it, pick one from the calendar button.
+ * With `partial`, a bare year or year-month is fine too.
+ */
 export function DateField({
   value,
   onChange,
   invalid,
+  label = "Publish date",
+  partial = false,
 }: {
   value: string;
   onChange: (v: string) => void;
   invalid: boolean;
+  label?: string;
+  partial?: boolean;
 }) {
   const [touched, setTouched] = useState(invalid); // no error while still typing, but show a bad prefill right away
   const pickerRef = useRef<HTMLInputElement>(null);
@@ -22,14 +29,14 @@ export function DateField({
 
   return (
     <TextField
-      label="Publish date"
-      placeholder="YYYY-MM-DD"
+      label={label}
+      placeholder={partial ? "YYYY or YYYY-MM-DD" : "YYYY-MM-DD"}
       fullWidth
       value={value}
       onChange={(e) => onChange(e.target.value)}
       onBlur={() => setTouched(true)}
       error={showError}
-      helperText={showError ? "Use the format YYYY-MM-DD" : undefined}
+      helperText={showError ? (partial ? "Use YYYY, YYYY-MM or YYYY-MM-DD" : "Use the format YYYY-MM-DD") : undefined}
       slotProps={{
         input: {
           endAdornment: canShowPicker ? (

@@ -23,6 +23,30 @@ export function normalizeDate(text: string): string | null | undefined {
   return `${m[1]}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+/**
+ * Like `normalizeDate`, but also accepts a year or a month: "1892", "1892-3" -> "1892-03",
+ * "1892/3/7" -> "1892-03-07". Empty -> null. Anything else -> undefined (invalid).
+ * The filter treats a partial date as the whole period it names.
+ */
+export function normalizePartialDate(text: string): string | null | undefined {
+  const t = text.trim();
+  if (!t) return null;
+  if (/^\d{4}$/.test(t)) return t;
+  const ym = /^(\d{4})[-/.](\d{1,2})$/.exec(t);
+  if (ym) {
+    const mo = Number(ym[2]);
+    return mo >= 1 && mo <= 12 ? `${ym[1]}-${String(mo).padStart(2, "0")}` : undefined;
+  }
+  return normalizeDate(t);
+}
+
+/** True when a (possibly partial) birth date is after a (possibly partial) death date. */
+export function startsAfter(birth: string, death: string): boolean {
+  const first = birth + "0000-01-01".slice(birth.length); // earliest day it could mean
+  const last = death + "9999-12-31".slice(death.length); // latest day it could mean
+  return first > last;
+}
+
 export const normIsbn = (s: string) => s.replace(/[\s-]/g, "").toUpperCase(); // 978-0-... == 9780...
 
 /**
