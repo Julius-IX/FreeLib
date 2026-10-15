@@ -6,6 +6,7 @@ export function emptyFilter(): BookFilter {
     text: null,
     title: null,
     blurb: null,
+    notes: null,
     author: null,
     tag: null,
     series: null,
@@ -128,7 +129,7 @@ const idList =
 
 // Keys are letters only (see KEY below). Add a searchable key = one `add` line.
 //
-//   text      title:  blurb:  author:  tag:  series:     substring, quote for spaces
+//   text      title:  blurb:  notes:  author:  tag:  series:     substring, quote for spaces
 //   status    status:unread | reading | finished
 //   dates     published: (alias pub:, year:)   born:   died:   started:   finished:
 //             2024 | 2024-03 | 2024-03-07 | "March 2024" | 1990..2000 | 1990.. | ..2000 | >=1990 | <=2000
@@ -140,6 +141,7 @@ const add = (keys: string[], setter: Setter) => keys.forEach((k) => FIELDS.set(k
 
 add(["title"], (f, v) => { f.title = v; });
 add(["blurb"], (f, v) => { f.blurb = v; });
+add(["notes", "note"], (f, v) => { f.notes = v; });
 add(["author"], (f, v) => { f.author = v; });
 add(["tag"], (f, v) => { f.tag = v; });
 add(["series"], (f, v) => { f.series = v; });
