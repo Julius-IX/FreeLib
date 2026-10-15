@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip,
-  BottomNavigation, BottomNavigationAction, Paper, useTheme,
+  BottomNavigation, BottomNavigationAction, Paper,
 } from "@mui/material";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { Tab, RouteHandle, tabs } from "./tabs";
@@ -33,7 +33,6 @@ function useNavHidden(router: TabRouter) {
 }
 
 export default function AppLayout() {
-  const theme = useTheme();
   const isOnMobile = isMobile();
 
   const [activeId, setActiveId] = useState(tabs[0].id);
