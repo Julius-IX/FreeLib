@@ -37,5 +37,12 @@ opt-level = 3
 panic = "abort"
 strip = true
 
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-barcode-scanner = "2"
+
+# Same version as the one wry already pulls in (see Cargo.lock), so the types match.
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = { version = "2.0.2", features = ["v2_4"] }
+
 [target.'cfg(target_os = "android")'.dependencies]
 webpki-root-certs = "1"
