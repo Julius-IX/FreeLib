@@ -35,6 +35,31 @@ fn allow_webcam(app: &tauri::App) {
   });
 }
 
+#[cfg(target_os = "linux")]
+fn fix_appimage_gstreamer() {
+  use std::path::PathBuf;
+  let Some(appdir) = std::env::var_os("APPDIR").map(PathBuf::from) else {
+    return; // not an AppImage
+  };
+  let plugins = appdir.join("usr/lib/gstreamer-1.0");
+  let scanner = plugins.join("gst-plugin-scanner");
+  if !scanner.exists() {
+    return;
+  }
+
+  // SAFETY: called first in run(), before any other threads start.
+  unsafe {
+    // The AppRun hook sets these _1_0 variants (wrongly), and GStreamer prefers them
+    std::env::set_var("GST_PLUGIN_SCANNER_1_0", &scanner);
+    std::env::set_var("GST_PLUGIN_SCANNER", &scanner);
+    std::env::set_var("GST_PLUGIN_PATH_1_0", &plugins);
+    std::env::set_var("GST_PLUGIN_SYSTEM_PATH_1_0", &plugins);
+
+    // Only set this if gst-ptp-helper exists in your bundle; it's unused for camera capture
+    // std::env::set_var("GST_PTP_HELPER_1_0", plugins.join("gst-ptp-helper"));
+  }
+}
+
 fn on_startup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   database::init_db(app.handle())?;
   #[cfg(target_os = "linux")]
@@ -56,6 +81,11 @@ fn linux_prefer_x11() -> bool {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  // The AppImage's gstreamer hook points at a scanner path that doesn't exist in Tauri's flat
+  // bundle layout. Must run before GTK / WebKit start.
+  #[cfg(target_os = "linux")]
+  fix_appimage_gstreamer();
+
   // WebKitGTK's DMA-BUF renderer is a known cause of frozen / stale video frames on some Linux
   // GPU + driver combos. Opt out unless the user set it themselves.
   #[cfg(target_os = "linux")]
