@@ -25,7 +25,8 @@ CREATE TABLE book (
     blurb TEXT,
     page_count INTEGER CHECK (page_count > 0),
     series_id INTEGER REFERENCES series (series_id),
-    series_position REAL    -- REAL allows 1.5 novellas
+    series_position REAL,    -- REAL allows 1.5 novellas
+    notes TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE book_author (

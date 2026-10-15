@@ -24,6 +24,9 @@ pub struct Series {
   pub name: String,
 }
 
+/// `book.notes` is not mapped here on purpose: notes can be long, and every list /
+/// filter query returns whole `Book`s. Read and write them with
+/// `get_book_notes` / `update_book_notes`.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, TsType)]
 #[serde(rename_all = "camelCase")]
 pub struct Book {

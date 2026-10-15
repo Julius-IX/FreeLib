@@ -21,8 +21,8 @@ pub enum ReadStatus {
 /// list) and means "don't filter on this"; all the ones you set are ANDed.
 ///
 /// **Substring** (case-insensitive, ASCII only)
-/// - `text`: title OR blurb OR isbn OR any author name OR any tag name OR series name
-/// - `title`, `blurb`: that field only
+/// - `text`: title OR blurb OR notes OR isbn OR any author name OR any tag name OR series name
+/// - `title`, `blurb`, `notes`: that field only
 /// - `author`: any of the book's authors
 /// - `tag`: any of the book's tags
 /// - `series`: the series name
@@ -69,6 +69,7 @@ pub struct BookFilter {
   pub text: Option<String>,
   pub title: Option<String>,
   pub blurb: Option<String>,
+  pub notes: Option<String>,
   pub author: Option<String>,
   pub tag: Option<String>,
   pub series: Option<String>,
@@ -376,6 +377,7 @@ async fn filter_books(pool: State<'_, SqlitePool>, filter: BookFilter) -> Res<Ve
       .push_bind(p.clone())
       .push(ESC);
     qb.push(" OR b.blurb LIKE ").push_bind(p.clone()).push(ESC);
+    qb.push(" OR b.notes LIKE ").push_bind(p.clone()).push(ESC);
     qb.push(" OR b.isbn LIKE ").push_bind(p.clone()).push(ESC);
     qb.push(format!(" OR {AUTHOR_EXISTS} AND a.name LIKE "))
       .push_bind(p.clone())
@@ -395,6 +397,9 @@ async fn filter_books(pool: State<'_, SqlitePool>, filter: BookFilter) -> Res<Ve
   }
   if let Some(t) = f.blurb.as_deref().filter(|t| !t.is_empty()) {
     push_like(&mut qb, " AND b.blurb LIKE ", t);
+  }
+  if let Some(t) = f.notes.as_deref().filter(|t| !t.is_empty()) {
+    push_like(&mut qb, " AND b.notes LIKE ", t);
   }
   if let Some(t) = f.author.as_deref().filter(|t| !t.is_empty()) {
     push_like(
