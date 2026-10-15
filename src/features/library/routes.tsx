@@ -1,5 +1,5 @@
 import { RouteObject, useNavigate } from "react-router-dom";
-import { Box, Typography, Button } from "@mui/material";
+import { Box } from "@mui/material";
 import FabActionStack from "@/components/FabActionStack";
 import BookIcon from '@mui/icons-material/Book';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -8,6 +8,7 @@ import { isDesktop, isMobile, once } from "@/util/misc";
 import { RouteHandle } from "@/app/tabs";
 import UpdateFilterFields from "./screens/UpdateFilterFields";
 import NewBook from "./screens/NewBook";
+import ScanBook from "./screens/ScanBook";
 import CoverPreviewPage, { COVER_SEGMENT } from "./screens/CoverPreview";
 import TopBar from "./components/TopBar";
 import { LibraryProvider, useLibrary } from "./LibraryContext";
@@ -30,11 +31,9 @@ function LibraryHome() {
 
   const actions = [
     { label: 'Add Book', icon: <BookIcon />, onClick: () => navigate(LibraryPath.AddBook) },
+    { label: 'Scan Book', icon: <QrCodeScannerIcon />, onClick: () => navigate(LibraryPath.Scan) },
     { label: 'Update Filter Fields', icon: <FolderIcon />, onClick: () => navigate(LibraryPath.UpdateFilterFields) },
   ];
-  if (isMobile()) {
-    actions.splice(1, 0, { label: 'Scan Book', icon: <QrCodeScannerIcon />, onClick: () => navigate(LibraryPath.Scan) });
-  }
 
   const onBookClick = (book: Book) => navigate(bookView(book));
 
@@ -46,17 +45,6 @@ function LibraryHome() {
         actions={actions}
       />
 
-    </Box>
-  );
-}
-
-// TODO: extract and implement
-function ScanBook() {
-  const navigate = useNavigate();
-  return (
-    <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-      <Typography variant="h5">Scan Book</Typography>
-      <Button variant="outlined" onClick={() => navigate(-1)}> Back </Button>
     </Box>
   );
 }
@@ -95,7 +83,7 @@ const addBookRoute = once((): RouteObject =>
 
 export const libraryRoutes: RouteObject[] = [
   { index: true, element: <LibraryHomeWrapper /> },
-  { path: LibraryPath.Scan, element: <ScanBook />, handle: { hideNav: isMobile() } satisfies RouteHandle },
+  { path: LibraryPath.Scan, element: <ScanBook />, handle: { hideNav: isMobile(), modal: isDesktop() } satisfies RouteHandle },
   { path: LibraryPath.UpdateFilterFields, element: <UpdateFilterFields />, handle: { hideNav: isMobile(), modal: isDesktop() } satisfies RouteHandle },
   { path: LibraryPath.ViewBook, element: <BookView />, handle: { hideNav: isMobile() } satisfies RouteHandle },
   { path: LibraryPath.EditNotes, element: <BookNotes/>, handle: { hideNav: isMobile() } satisfies RouteHandle },
