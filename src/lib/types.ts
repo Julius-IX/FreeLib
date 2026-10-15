@@ -33,6 +33,7 @@ export type BookFilter = {
   text: string | null;
   title: string | null;
   blurb: string | null;
+  notes: string | null;
   author: string | null;
   tag: string | null;
   series: string | null;
