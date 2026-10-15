@@ -1,4 +1,5 @@
 import java.util.Properties
+import java.io.FileInputStream
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -15,6 +16,18 @@ val tauriProperties = Properties().apply {
 }
 
 android {
+    signingConfigs {
+      create("release") {
+        val props = Properties()
+        val f = rootProject.file("keystore.properties")
+        if (f.exists()) props.load(FileInputStream(f))
+        keyAlias = props["keyAlias"] as String
+        keyPassword = props["password"] as String
+        storeFile = file(props["storeFile"] as String)
+        storePassword = props["password"] as String
+      }
+
+    }
     compileSdk = 37
     namespace = "com.salad.free_lib"
     defaultConfig {
@@ -39,6 +52,7 @@ android {
             }
         }
         getByName("release") {
+          signingConfig = signingConfigs.getByName("release")
             optimization {
                enable = true
             }
