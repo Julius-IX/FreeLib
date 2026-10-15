@@ -3,6 +3,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
 import StopIcon from "@mui/icons-material/Stop";
+import NotesIcon from '@mui/icons-material/Notes';
 
 type Props = {
   anchor: HTMLElement | null;
@@ -11,12 +12,13 @@ type Props = {
   reading: boolean;
   busy: boolean;
   onEdit: () => void;
+  onNotes: () => void;
   onDelete: () => void;
   onStart: () => void;
   onEnd: () => void;
 };
 
-export function BookMenu({ anchor, onClose, reading, busy, onEdit, onDelete, onStart, onEnd }: Props) {
+export function BookMenu({ anchor, onClose, reading, busy, onEdit, onNotes,onDelete, onStart, onEnd }: Props) {
   return (
     <Menu anchorEl={anchor} open={!!anchor} onClose={onClose}>
       <MenuItem onClick={onEdit}>
@@ -24,6 +26,12 @@ export function BookMenu({ anchor, onClose, reading, busy, onEdit, onDelete, onS
           <EditIcon fontSize="small" />
         </ListItemIcon>
         <ListItemText>Edit</ListItemText>
+      </MenuItem>
+      <MenuItem onClick={onNotes}>
+        <ListItemIcon>
+          <NotesIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText>Notes</ListItemText>
       </MenuItem>
       <MenuItem onClick={onDelete} sx={{ color: "error.main" }}>
         <ListItemIcon sx={{ color: "inherit" }}>

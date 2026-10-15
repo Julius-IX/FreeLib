@@ -14,6 +14,7 @@ import { LibraryProvider, useLibrary } from "./LibraryContext";
 import CardGrid from "./components/CardGrid";
 import BookView from "./screens/BookView";
 import { Book } from "@/lib/types";
+import BookNotes from "./screens/BookNotes";
 
 function LibraryHomeWrapper() {
   return (
@@ -65,6 +66,7 @@ export const LibraryPath = {
   UpdateFilterFields: "update-filter-fields",
   AddBook: "add-book",
   ViewBook: "view-book/:bookId",
+  EditNotes: "view-book/:bookId/notes",
   /** Nested under AddBook, mobile only: add-book/cover */
   Cover: COVER_SEGMENT,
 } as const;
@@ -96,5 +98,6 @@ export const libraryRoutes: RouteObject[] = [
   { path: LibraryPath.Scan, element: <ScanBook />, handle: { hideNav: isMobile() } satisfies RouteHandle },
   { path: LibraryPath.UpdateFilterFields, element: <UpdateFilterFields />, handle: { hideNav: isMobile(), modal: isDesktop() } satisfies RouteHandle },
   { path: LibraryPath.ViewBook, element: <BookView />, handle: { hideNav: isMobile() } satisfies RouteHandle },
+  { path: LibraryPath.EditNotes, element: <BookNotes/>, handle: { hideNav: isMobile() } satisfies RouteHandle },
   addBookRoute(),
 ];

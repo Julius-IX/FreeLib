@@ -60,6 +60,9 @@ export default function BookView() {
       state: { initial: toDraft(details, cover.path), editBookId: book.bookId } satisfies NewBookState,
     });
   };
+  const notes = () => {
+    navigate("notes");
+  }
 
   // start / end read: do it, then re-read so the history updates
   const runReadAction = async (what: string, action: () => Promise<unknown>) => {
@@ -103,6 +106,7 @@ export default function BookView() {
         reading={!!openReading}
         busy={busy}
         onEdit={edit}
+        onNotes={notes}
         onDelete={() => {
           closeMenu();
           setConfirmingDelete(true);
