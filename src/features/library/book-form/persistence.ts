@@ -41,23 +41,6 @@ export async function findBookByIsbn(isbn: string): Promise<Book | null> {
   return books.find((b) => b.isbn && normIsbn(b.isbn) === want) ?? null;
 }
 
-/** Rejects if `p` hasn't settled after `ms`, so a command that never answers can't freeze the UI. */
-export function withTimeout<T>(p: Promise<T>, ms: number, what: string): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new Error(`${what} timed out after ${ms / 1000}s`)), ms);
-    p.then(
-      (v) => {
-        clearTimeout(t);
-        resolve(v);
-      },
-      (e) => {
-        clearTimeout(t);
-        reject(e);
-      }
-    );
-  });
-}
-
 /** Deletes the saved cover for this ISBN, if there is one. */
 export async function removeCover(isbn: string) {
   if (await commands.covers.getCoverPath({ isbn })) await commands.covers.deleteCover({ isbn });

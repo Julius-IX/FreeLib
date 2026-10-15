@@ -4,6 +4,7 @@ import OptionalModal from "@/modal/OptionalModal";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useEffect, useState } from "react";
 import { isMobile } from "@/util/misc";
+import { withTimeout } from "@/util/async";
 import { commands } from "@/lib/commands";
 import type { Book, BookInput } from "@/lib/types";
 import { notify } from "@/notifications/notify";
@@ -14,7 +15,7 @@ import { DateField } from "../book-form/DateField";
 import { SeriesField } from "../book-form/SeriesField";
 import { toChoice, toChoices } from "../book-form/choice";
 import { emptyToNull, isValidIsbn, noSpinners, normIsbn, normalizeDate, numOrNull } from "../book-form/inputs";
-import { defaultTagTypeId, findBookByIsbn, removeCover, saveNew, withTimeout } from "../book-form/persistence";
+import { defaultTagTypeId, findBookByIsbn, removeCover, saveNew } from "../book-form/persistence";
 import type { BookDraft, BookFields, Choice } from "../book-form/types";
 import { bumpLibrary } from "../libraryEvents";
 
