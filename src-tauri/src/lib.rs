@@ -3,6 +3,7 @@ mod database;
 mod filter;
 pub mod models;
 mod plugins;
+mod settings;
 
 /// Linux (WebKitGTK) refuses every getUserMedia request unless the app answers the permission
 /// request itself, and ships with media streams off. The desktop barcode scanner needs the
@@ -63,6 +64,7 @@ fn fix_appimage_gstreamer() {
 
 fn on_startup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   database::init_db(app.handle())?;
+  settings::init(app.handle())?;
   plugins::init(app.handle())?;
   #[cfg(target_os = "linux")]
   allow_webcam(app);

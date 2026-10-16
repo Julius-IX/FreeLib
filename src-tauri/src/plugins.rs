@@ -11,8 +11,8 @@
 //!   invalid / unknown.
 //! - `lookup_book` runs every enabled plugin at once, merges what they return and reports the ones
 //!   that failed. It's what a scanned barcode goes through.
-//! - Plugins can be turned on and off at runtime (`set_plugin_enabled`). The off ones are saved in
-//!   `<app data>/plugins/disabled.json` and survive restarts; lookups skip them.
+//! - Plugins can be turned on and off at runtime (`set_plugin_enabled`). The off ones are kept in
+//!   the app settings (`settings::PLUGINS_DISABLED`) and survive restarts; lookups skip them.
 //! - A plugin's settings (e.g. an API key) are a JSON object saved in `<app data>/plugins/<id>.config.json`.
 //!   The Plugins tab edits it (`get_plugin_config` / `set_plugin_config`) and it's handed to the plugin
 //!   as its third argument. A plugin that doesn't use settings says `ignoreConfig: true` in its manifest
@@ -46,9 +46,9 @@ use tauri::{AppHandle, Manager, State};
 use tauri_groups::{TsType, command};
 use tauri_plugin_fs::{FilePath, FsExt};
 
+use crate::settings::{PLUGINS_DISABLED, Settings};
+
 const DIR_NAME: &str = "plugins";
-/// In the plugins folder: a JSON array with the ids of the plugins that are turned off.
-const DISABLED_FILE: &str = "disabled.json";
 const LOAD_TIMEOUT: Duration = Duration::from_secs(2);
 const RUN_TIMEOUT: Duration = Duration::from_secs(10);
 const MEMORY_LIMIT: usize = 32 * 1024 * 1024;
@@ -894,8 +894,9 @@ struct Inner {
   /// `<app data dir>/plugins`
   dir: PathBuf,
   loaded: Mutex<Vec<Entry>>,
-  /// Ids of plugins that are turned off. Kept by id, so it survives a plugin being replaced.
-  disabled: Mutex<HashSet<String>>,
+  /// Holds the ids of the plugins that are turned off (`PLUGINS_DISABLED`). Kept by id, so it
+  /// survives a plugin being replaced.
+  settings: Settings,
 }
 
 struct Entry {
@@ -911,7 +912,8 @@ pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
   let dir = app.path().app_data_dir()?.join(DIR_NAME);
   std::fs::create_dir_all(&dir)?;
 
-  let plugins = Plugins::new(dir);
+  let settings = app.state::<Settings>().inner().clone();
+  let plugins = Plugins::new(dir, settings);
   for f in plugins.reload() {
     eprintln!("plugin not loaded: {}", f.report());
   }
@@ -919,26 +921,24 @@ pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
   Ok(())
 }
 
-fn read_disabled(dir: &Path) -> HashSet<String> {
-  let Ok(text) = std::fs::read_to_string(dir.join(DISABLED_FILE)) else {
-    return HashSet::new();
-  };
-  serde_json::from_str::<Vec<String>>(&text)
-    .map(|ids| ids.into_iter().collect())
-    .unwrap_or_else(|e| {
-      eprintln!("{DISABLED_FILE} ignored, it isn't a JSON array of ids: {e}");
-      HashSet::new()
-    })
-}
-
 impl Plugins {
-  fn new(dir: PathBuf) -> Self {
-    let disabled = read_disabled(&dir);
+  fn new(dir: PathBuf, settings: Settings) -> Self {
     Plugins(Arc::new(Inner {
       dir,
       loaded: Mutex::new(Vec::new()),
-      disabled: Mutex::new(disabled),
+      settings,
     }))
+  }
+
+  /// Ids of the plugins that are turned off.
+  fn disabled_ids(&self) -> HashSet<String> {
+    self
+      .0
+      .settings
+      .get::<Vec<String>>(PLUGINS_DISABLED)
+      .unwrap_or_default()
+      .into_iter()
+      .collect()
   }
 
   /// Loads the built-in plugins, then every `<dir>/*.js` (by file name). A file with a built-in's id
@@ -983,7 +983,7 @@ impl Plugins {
       .and_then(|_| std::fs::write(self.0.dir.join(format!("{}.js", info.id)), code))
       .map_err(|e| Failure::new(&info.id, "load", format!("couldn't save the plugin: {e}")))?;
     // installing a plugin is asking for it, so it comes in turned on
-    if self.0.disabled.lock().unwrap().contains(&info.id) {
+    if self.disabled_ids().contains(&info.id) {
       self.set_enabled(&info.id, true)?;
     }
     info.enabled = true;
@@ -995,24 +995,18 @@ impl Plugins {
     if !self.list().iter().any(|p| p.id == id) {
       return Err(self.not_found(id));
     }
-    let ids = {
-      let mut disabled = self.0.disabled.lock().unwrap();
-      if enabled {
-        disabled.remove(id);
-      } else {
-        disabled.insert(id.to_string());
-      }
-      let mut ids: Vec<String> = disabled.iter().cloned().collect();
-      ids.sort();
-      ids
-    };
-    std::fs::create_dir_all(&self.0.dir)
-      .and_then(|_| {
-        std::fs::write(
-          self.0.dir.join(DISABLED_FILE),
-          serde_json::to_string_pretty(&ids)?,
-        )
-      })
+    let mut ids = self.disabled_ids();
+    if enabled {
+      ids.remove(id);
+    } else {
+      ids.insert(id.to_string());
+    }
+    let mut ids: Vec<_> = ids.into_iter().collect();
+    ids.sort();
+    self
+      .0
+      .settings
+      .set(PLUGINS_DISABLED, json!(ids))
       .map_err(|e| Failure::new(id, "load", format!("couldn't save the setting: {e}")))
   }
 
@@ -1055,7 +1049,7 @@ impl Plugins {
   }
 
   fn list(&self) -> Vec<PluginInfo> {
-    let disabled = self.0.disabled.lock().unwrap().clone();
+    let disabled = self.disabled_ids();
     let loaded = self.0.loaded.lock().unwrap();
     loaded
       .iter()
@@ -1380,14 +1374,19 @@ async fn run_plugin(plugins: State<'_, Plugins>, id: String, input: Value) -> Re
 mod tests {
   use super::*;
 
-  /// A fresh plugins folder per call, so files one test writes (config, disabled.json) can't affect another.
+  /// Where a test's settings file lives: next to its plugins folder, like in the real app.
+  fn settings_file(p: &Plugins) -> PathBuf {
+    p.0.dir.parent().unwrap().join("settings.json")
+  }
+
+  /// A fresh app data folder per call, so files one test writes (config, settings) can't affect another.
   fn empty() -> Plugins {
     static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
     let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let dir =
+    let root =
       std::env::temp_dir().join(format!("free-lib-plugin-tests-{}-{n}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    Plugins::new(dir)
+    let _ = std::fs::remove_dir_all(&root);
+    Plugins::new(root.join(DIR_NAME), Settings::open(root.join("settings.json")))
   }
 
   fn loaded(code: &str) -> Plugins {
@@ -1802,7 +1801,7 @@ mod tests {
     assert!(p.list().iter().any(|i| i.id == "a" && i.enabled));
 
     // a new process on the same folder reads the setting back too
-    let restarted = Plugins::new(p.0.dir.clone());
+    let restarted = Plugins::new(p.0.dir.clone(), Settings::open(settings_file(&p)));
     restarted.reload();
     assert!(restarted.list().iter().any(|i| i.id == "b" && !i.enabled));
     assert!(restarted.list().iter().any(|i| i.id == "a" && i.enabled));
@@ -1825,15 +1824,7 @@ mod tests {
       .unwrap();
     assert!(info.enabled);
     assert_eq!(enabled_ids(&p), ["a", "b"]);
-    assert!(read_disabled(&p.0.dir).is_empty());
-  }
-
-  #[test]
-  fn a_corrupt_disabled_file_is_ignored() {
-    let p = empty();
-    std::fs::create_dir_all(&p.0.dir).unwrap();
-    std::fs::write(p.0.dir.join(DISABLED_FILE), "{{nope").unwrap();
-    assert!(read_disabled(&p.0.dir).is_empty());
+    assert!(p.disabled_ids().is_empty());
   }
 
   #[test]
