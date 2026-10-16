@@ -332,12 +332,18 @@ async fn delete_tag_type(pool: State<'_, SqlitePool>, tag_type_id: i64) -> Res<(
 
 // SECTION: tag
 
+/// Tag names are stored trimmed and lower-cased, whatever the caller sends. Doing it here (not in
+/// each caller) means no code path, scan, form or import, can leave a "Fantasy" next to a "fantasy".
+fn norm_tag_name(name: &str) -> String {
+  name.trim().to_lowercase()
+}
+
 #[command(db_crud)]
 async fn create_tag(pool: State<'_, SqlitePool>, tag: TagInput) -> Res<Tag> {
   Ok(
     sqlx::query_as::<_, Tag>("INSERT INTO tag (tag_type_id, name) VALUES (?, ?) RETURNING *")
       .bind(tag.tag_type_id)
-      .bind(tag.name)
+      .bind(norm_tag_name(&tag.name))
       .fetch_one(pool.inner())
       .await?,
   )
@@ -373,7 +379,7 @@ async fn update_tag(pool: State<'_, SqlitePool>, tag_id: i64, tag: TagInput) -> 
       "UPDATE tag SET tag_type_id = ?, name = ? WHERE tag_id = ? RETURNING *",
     )
     .bind(tag.tag_type_id)
-    .bind(tag.name)
+    .bind(norm_tag_name(&tag.name))
     .bind(tag_id)
     .fetch_one(pool.inner())
     .await?,
