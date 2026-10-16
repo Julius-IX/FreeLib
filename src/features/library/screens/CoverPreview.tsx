@@ -21,7 +21,7 @@ function validLink(s: string): string | null {
   }
 }
 
-const MIME: Record<string, string> = {
+export const MIME: Record<string, string> = {
   png: "image/png",
   jpg: "image/jpeg",
   jpeg: "image/jpeg",

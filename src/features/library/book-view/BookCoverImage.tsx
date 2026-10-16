@@ -7,8 +7,9 @@ export function BookCoverImage({ url, title, sx }: { url: string; title: string;
       component="img"
       src={url}
       alt={title}
+      decoding="sync"
       sx={[
-        { display: "block", aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 2, boxShadow: 3 },
+        { display: "block", aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 2, boxShadow: 3, bgcolor: "action.hover" },
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
     />
