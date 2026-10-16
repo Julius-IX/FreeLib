@@ -7,6 +7,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { Tab, RouteHandle, tabs } from "./tabs";
 import { isMobile } from "@/util/misc";
 import ModalHost from "@/modal/ModalHost";
+import { isNumber, useSetting } from "@/lib/settings";
 
 const SIDEBAR_MIN = 72; // icon-only rail
 const SIDEBAR_MAX = 400;
@@ -43,13 +44,8 @@ export default function AppLayout() {
   const navHidden = useNavHidden(stacks[activeId].router);
 
   // Resizable sidebar (desktop), remembered across launches
-  const [sidebarW, setSidebarW] = useState(() => {
-    const v = Number(localStorage.getItem("sidebarW"));
-    return v ? clamp(v) : SIDEBAR_DEFAULT;
-  });
-  useEffect(() => {
-    try { localStorage.setItem("sidebarW", String(sidebarW)); } catch { }
-  }, [sidebarW]);
+  const [savedW, saveSidebarW] = useSetting("sidebarW", SIDEBAR_DEFAULT, isNumber);
+  const [sidebarW, setSidebarW] = useState(clamp(savedW));
   const compact = sidebarW < SIDEBAR_COMPACT_BELOW;
   const drag = useRef<{ startX: number; startW: number } | null>(null);
 
@@ -124,9 +120,9 @@ export default function AppLayout() {
             onPointerMove={(e) => {
               if (drag.current) setSidebarW(clamp(drag.current.startW + e.clientX - drag.current.startX));
             }}
-            onPointerUp={() => { drag.current = null; }}
+            onPointerUp={() => { drag.current = null; saveSidebarW(sidebarW); }}
             onPointerCancel={() => { drag.current = null; }}
-            onDoubleClick={() => setSidebarW(SIDEBAR_DEFAULT)}
+            onDoubleClick={() => { setSidebarW(SIDEBAR_DEFAULT); saveSidebarW(SIDEBAR_DEFAULT); }}
             sx={{
               position: "absolute", top: 0, right: 0, bottom: 0, width: 6,
               cursor: "col-resize", touchAction: "none",

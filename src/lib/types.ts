@@ -87,6 +87,27 @@ export type BookTag = {
   tagId: number;
 }
 
+export type CreatedBackup = {
+  path: string;
+  sizeBytes: number;
+  books: number;
+  covers: number;
+  plugins: number;
+}
+
+export type ImportMode = "fullReplace" | "appendMerge" | "overrideMerge";
+
+export type ImportReport = {
+  booksAdded: number;
+  booksUpdated: number;
+  booksSkipped: number;
+  authorsAdded: number;
+  seriesAdded: number;
+  tagsAdded: number;
+  coversCopied: number;
+  pluginFilesCopied: number;
+}
+
 export type InvalidField = {
   field: string;
   reason: string;

@@ -20,11 +20,11 @@ use tauri::{AppHandle, Manager};
 use tauri_groups::command;
 use tauri_plugin_fs::{FilePath, FsExt};
 
-const DIR_NAME: &str = "cover-images";
+pub(crate) const DIR_NAME: &str = "cover-images";
 const MAX_BYTES: usize = 15 * 1024 * 1024;
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30);
 /// Every extension `detect_ext` can return.
-const EXTS: [&str; 4] = ["jpg", "png", "webp", "gif"];
+pub(crate) const EXTS: [&str; 4] = ["jpg", "png", "webp", "gif"];
 
 // SECTION: errors
 
@@ -82,7 +82,7 @@ fn covers_dir(app: &AppHandle) -> Res<PathBuf> {
   Ok(dir)
 }
 
-fn existing_cover(dir: &Path, isbn: &str) -> Option<PathBuf> {
+pub(crate) fn existing_cover(dir: &Path, isbn: &str) -> Option<PathBuf> {
   EXTS
     .iter()
     .map(|ext| dir.join(format!("{isbn}.{ext}")))
