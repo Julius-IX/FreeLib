@@ -9,6 +9,7 @@ import { notify } from "@/notifications/notify";
  *   const [sidebarW, setSidebarW] = useSetting("sidebarW", 240, isNumber);
  */
 export const isNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+export const isBoolean = (v: unknown): v is boolean => typeof v === "boolean";
 
 let cache: Record<string, unknown> = {};
 const listeners = new Set<() => void>();

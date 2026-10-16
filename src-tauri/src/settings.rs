@@ -26,6 +26,12 @@ use tauri_groups::command;
 /// Ids of the plugins that are turned off: a JSON array of strings.
 pub const PLUGINS_DISABLED: &str = "plugins.disabled";
 
+/// "Use X11 on Wayland" (Linux only): a JSON bool, `true` when missing. Unlike the others this
+/// is read before the app exists, see [`peek_early`].
+pub const LINUX_X11_ON_WAYLAND: &str = "linux.x11OnWayland";
+
+const FILE: &str = "settings.json";
+
 /// Every setting the app has. Keep in step with the keys in `src/lib/settings.ts`.
 const KNOWN: &[&str] = &[
   "theme",
@@ -33,6 +39,7 @@ const KNOWN: &[&str] = &[
   "sidebarW",
   "libraryColumns",
   PLUGINS_DISABLED,
+  LINUX_X11_ON_WAYLAND,
 ];
 
 // SECTION: store
@@ -52,7 +59,7 @@ pub fn init(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
   }
   let dir = app.path().app_data_dir()?;
   fs::create_dir_all(&dir)?;
-  app.manage(Settings::open(dir.join("settings.json")));
+  app.manage(Settings::open(dir.join(FILE)));
   Ok(())
 }
 
@@ -152,6 +159,34 @@ fn save(path: &Path, values: &Map<String, Value>) -> io::Result<()> {
     .inspect_err(|_| {
       let _ = fs::remove_file(&tmp);
     })
+}
+
+// SECTION: early read
+
+/// Reads `key` from the settings file at `path` without touching the file: nothing is pruned,
+/// a corrupt file isn't moved aside, nothing is created. Missing, unreadable or the wrong type
+/// all mean `None`.
+#[cfg(any(target_os = "linux", test))]
+fn peek<T: DeserializeOwned>(path: &Path, key: &str) -> Option<T> {
+  let Value::Object(map) = serde_json::from_str::<Value>(&fs::read_to_string(path).ok()?).ok()?
+  else {
+    return None;
+  };
+  serde_json::from_value(map.get(key)?.clone()).ok()
+}
+
+/// `Settings::get` for code that runs before the Tauri app (and so `Settings`) exists, like
+/// choosing the GTK backend. It finds the file the way `app_data_dir()` does on Linux:
+/// `$XDG_DATA_HOME` (if it's an absolute path) or `~/.local/share`, then the app identifier.
+/// Read-only; the real store is opened later by `init`.
+#[cfg(target_os = "linux")]
+pub fn peek_early<T: DeserializeOwned>(identifier: &str, key: &str) -> Option<T> {
+  use std::env::var_os;
+  let data_home = var_os("XDG_DATA_HOME")
+    .map(PathBuf::from)
+    .filter(|p| p.is_absolute())
+    .or_else(|| var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")))?;
+  peek(&data_home.join(identifier).join(FILE), key)
 }
 
 // SECTION: commands
@@ -290,6 +325,28 @@ mod tests {
     assert_eq!(s.get::<String>("mode"), None); // not in the replacement: gone
     let on_disk: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(on_disk, json!({ "theme": "forest" }));
+  }
+
+  #[test]
+  fn peek_reads_one_key_and_changes_nothing() {
+    let path = temp_file();
+    fs::write(&path, r#"{"linux.x11OnWayland": false, "oldSetting": 1}"#).unwrap();
+
+    assert_eq!(peek::<bool>(&path, LINUX_X11_ON_WAYLAND), Some(false));
+    assert_eq!(peek::<bool>(&path, "theme"), None); // never saved
+    assert_eq!(peek::<String>(&path, LINUX_X11_ON_WAYLAND), None); // wrong type
+    // untouched: opening the store would have pruned the stale key
+    assert!(fs::read_to_string(&path).unwrap().contains("oldSetting"));
+  }
+
+  #[test]
+  fn peek_on_a_missing_or_corrupt_file_is_none() {
+    let path = temp_file();
+    assert_eq!(peek::<bool>(&path, LINUX_X11_ON_WAYLAND), None);
+
+    fs::write(&path, "{{nope").unwrap();
+    assert_eq!(peek::<bool>(&path, LINUX_X11_ON_WAYLAND), None);
+    assert!(!path.with_extension("json.corrupt").exists()); // left for `init` to deal with
   }
 
   #[test]

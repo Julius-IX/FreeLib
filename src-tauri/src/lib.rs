@@ -76,16 +76,19 @@ fn on_startup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 /// WebKitGTK can freeze the whole UI while opening the camera; X11 doesn't. An explicit
 /// `GDK_BACKEND` in the environment always wins over this.
 ///
-/// TODO: this is meant to become a user setting ("Use X11 on Wayland"). It is read
-/// before GTK starts, i.e. before the Tauri app handle (and so the database) exists, so the
-/// setting has to be stored somewhere readable this early
+/// This is the "Use X11 on Wayland" setting (`settings::LINUX_X11_ON_WAYLAND`, on by default).
+/// It is read before GTK starts, i.e. before the Tauri app handle exists, so it can't go through
+/// `Settings`; `settings::peek_early` reads the settings file directly instead.
 #[cfg(target_os = "linux")]
-fn linux_prefer_x11() -> bool {
-  true
+fn linux_prefer_x11(identifier: &str) -> bool {
+  settings::peek_early(identifier, settings::LINUX_X11_ON_WAYLAND).unwrap_or(true)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  // Built this early only for its app identifier.
+  let context = tauri::generate_context!();
+
   // The AppImage's gstreamer hook points at a scanner path that doesn't exist in Tauri's flat
   // bundle layout. Must run before GTK / WebKit start.
   #[cfg(target_os = "linux")]
@@ -99,13 +102,13 @@ pub fn run() {
     unsafe { std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1") };
   }
 
-  // TODO: update after README.md is defined
-  // Camera freezes on native Wayland (see README, "Linux: camera requirements"). Must happen
-  // before GTK / WebKit start, so it can't wait for the Tauri app or its database.
+  // Camera freezes on native Wayland (see README, "Linux: camera requirements"). Users can opt
+  // out in Settings ("Use X11 on Wayland"; takes effect on the next start). Must happen before
+  // GTK / WebKit start, so it can't wait for the Tauri app or its database.
   #[cfg(target_os = "linux")]
   if std::env::var_os("GDK_BACKEND").is_none()
     && std::env::var_os("WAYLAND_DISPLAY").is_some()
-    && linux_prefer_x11()
+    && linux_prefer_x11(&context.config().identifier)
   {
     // SAFETY: same as above, still single-threaded.
     unsafe { std::env::set_var("GDK_BACKEND", "x11") };
@@ -132,7 +135,7 @@ pub fn run() {
   builder
     // built from every `#[command(group)]` fn in the crate: no lists to maintain
     .invoke_handler(tauri_groups::handler())
-    .run(tauri::generate_context!())
+    .run(context)
     .expect("error while running tauri application");
 }
 

@@ -4,6 +4,9 @@ export const isMobile = () => {
   return platform() === "android" || platform() === "ios";
 }
 
+/** Desktop Linux only: Android reports its own platform name. */
+export const isLinux = () => platform() === "linux";
+
 export const isDesktop = () => {
   return platform() === "linux" || platform() === "macos" || platform() === "windows";
 }

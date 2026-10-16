@@ -6,8 +6,12 @@ import { ThemeSwatches } from "@/themes/ThemePicker";
 import { useAppTheme } from "@/themes/AppThemeProvider";
 import { themeLabel } from "@/themes/themes";
 import { libraryColumnsRange, useLibraryColumns } from "@/features/library/libraryColumns";
+import { isLinux } from "@/util/misc";
+import { useX11OnWayland } from "./linuxSettings";
 import { BackupSettings } from "./components/BackupSettings";
-import { Preference, Section, SelectPreference, SliderPreference } from "./components/Preferences";
+import {
+  Preference, Section, SelectPreference, SliderPreference, SwitchPreference,
+} from "./components/Preferences";
 
 function VersionFooter() {
   const [version, setVersion] = useState<string | null>(null);
@@ -27,6 +31,7 @@ function SettingsHome() {
   const { name, mode, setMode } = useAppTheme();
   const [columns, saveColumns] = useLibraryColumns();
   const { min, max } = libraryColumnsRange();
+  const [x11OnWayland, setX11OnWayland] = useX11OnWayland();
 
   return (
     <Box sx={{ maxWidth: 720, mx: "auto", pb: 2 }}>
@@ -60,6 +65,17 @@ function SettingsHome() {
           onCommit={saveColumns}
         />
       </Section>
+
+      {isLinux() && (
+        <Section title="Linux">
+          <SwitchPreference
+            title="Use X11 on Wayland"
+            summary="Runs through XWayland so the camera can't freeze the app. Only matters in a Wayland session. Restart the app to apply."
+            checked={x11OnWayland}
+            onChange={setX11OnWayland}
+          />
+        </Section>
+      )}
 
       <BackupSettings />
 

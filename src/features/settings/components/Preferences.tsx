@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import {
   Box, Button, Dialog, DialogActions, DialogTitle, List, ListItemButton, ListItemText,
-  Radio, Slider, Typography,
+  Radio, Slider, Switch, Typography,
 } from "@mui/material";
 
 /**
@@ -50,6 +50,26 @@ export function Preference({
       {text}
       {children && <Box sx={{ mt: 1 }}>{children}</Box>}
     </Box>
+  );
+}
+
+/** A row with an on/off switch. The whole row toggles it. */
+export function SwitchPreference({
+  title,
+  summary,
+  checked,
+  onChange,
+}: {
+  title: string;
+  summary?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <ListItemButton onClick={() => onChange(!checked)} sx={rowPadding}>
+      <ListItemText primary={title} secondary={summary} sx={{ m: 0, pr: 2 }} />
+      <Switch edge="end" checked={checked} disableRipple tabIndex={-1} />
+    </ListItemButton>
   );
 }
 
