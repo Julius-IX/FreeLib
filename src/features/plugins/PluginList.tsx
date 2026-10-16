@@ -1,32 +1,34 @@
-import { useCallback, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Alert, Box, IconButton, Switch, Tooltip, Typography } from "@mui/material";
 import TuneIcon from "@mui/icons-material/Tune";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { commands } from "@/lib/commands";
 import type { PluginInfo } from "@/lib/types";
 import { notify } from "@/notifications/notify";
 import { PluginPath } from "./paths";
+import { RemovePluginDialog } from "./RemovePluginDialog";
+import { reason } from "./usePlugins";
 
 /**
- * Every installed book lookup plugin: turn each on or off, and open its config. A scanned barcode
- * is looked up with every plugin that's on and the answers are merged. Both choices are saved by
- * the backend and survive restarts.
+ * Every installed book lookup plugin: turn each on or off, open its config, remove the ones that
+ * aren't built in. A scanned barcode is looked up with every plugin that's on and the answers are
+ * merged. All of it is saved by the backend and survives restarts.
  */
-export function PluginList() {
+export function PluginList({
+  plugins,
+  setPlugins,
+  refresh,
+}: {
+  plugins: PluginInfo[] | null;
+  setPlugins: Dispatch<SetStateAction<PluginInfo[] | null>>;
+  refresh: () => Promise<void>;
+}) {
   const navigate = useNavigate();
-  const [plugins, setPlugins] = useState<PluginInfo[] | null>(null);
-
-  const refresh = useCallback(async () => {
-    try {
-      setPlugins(await commands.plugins.listPlugins());
-    } catch (e) {
-      notify(`Couldn't load the plugins: ${String(e)}`, { severity: "error" });
-    }
-  }, []);
-
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  // `removing` stays set while the dialog fades out, so its text doesn't blank mid-animation
+  const [removing, setRemoving] = useState<PluginInfo | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [removeBusy, setRemoveBusy] = useState(false);
 
   const toggle = async (plugin: PluginInfo, enabled: boolean) => {
     // flip it right away; put the list back the way the backend has it if that fails
@@ -36,6 +38,27 @@ export function PluginList() {
     } catch (e) {
       notify(`Couldn't ${enabled ? "turn on" : "turn off"} ${plugin.name}: ${String(e)}`, { severity: "error" });
       refresh();
+    }
+  };
+
+  const askRemove = (plugin: PluginInfo) => {
+    setRemoving(plugin);
+    setConfirmOpen(true);
+  };
+
+  const confirmRemove = async () => {
+    if (!removing) return;
+    setRemoveBusy(true);
+    try {
+      await commands.plugins.removePlugin({ id: removing.id });
+      notify(`Removed ${removing.name}`);
+      setConfirmOpen(false);
+    } catch (e) {
+      console.error("removePlugin failed", e);
+      notify(`Couldn't remove ${removing.name}: ${reason(e)}`, { severity: "error" });
+    } finally {
+      setRemoveBusy(false);
+      refresh(); // also brings a built-in back if the removed plugin had replaced it
     }
   };
 
@@ -56,6 +79,16 @@ export function PluginList() {
               {p.builtin ? " · built in" : ""} · asks {p.http.length ? p.http.join(", ") : "no websites"}
             </Typography>
           </Box>
+          {p.builtin ? (
+            // same width as the remove button, so the switches line up
+            <Box sx={{ width: 40, flexShrink: 0 }} />
+          ) : (
+            <Tooltip title="Remove">
+              <IconButton aria-label={`Remove ${p.name}`} onClick={() => askRemove(p)}>
+                <DeleteIcon />
+              </IconButton>
+            </Tooltip>
+          )}
           <Tooltip title="Config">
             <IconButton
               aria-label={`Edit the config of ${p.name}`}
@@ -71,6 +104,14 @@ export function PluginList() {
           />
         </Box>
       ))}
+
+      <RemovePluginDialog
+        open={confirmOpen}
+        name={removing?.name ?? ""}
+        busy={removeBusy}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={confirmRemove}
+      />
     </Box>
   );
 }
