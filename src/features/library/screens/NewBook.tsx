@@ -14,7 +14,7 @@ import { CoverField } from "../book-form/CoverField";
 import { DateField } from "../book-form/DateField";
 import { SeriesField } from "../book-form/SeriesField";
 import { toChoice, toChoices } from "../book-form/choice";
-import { emptyToNull, isValidIsbn, noSpinners, normIsbn, normalizeDate, numOrNull } from "../book-form/inputs";
+import { emptyToNull, isValidIsbn, noSpinners, normIsbn, normTag, normalizeDate, numOrNull } from "../book-form/inputs";
 import { defaultTagTypeId, findBookByIsbn, removeCover, saveNew } from "../book-form/persistence";
 import type { BookDraft, BookFields, Choice } from "../book-form/types";
 import { bumpLibrary } from "../libraryEvents";
@@ -114,7 +114,8 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         async (name) => {
           tagTypeId ??= await defaultTagTypeId();
           return (await commands.db_crud.createTag({ tag: { tagTypeId, name } })).tagId;
-        }
+        },
+        normTag
       );
       setTags(savedTags);
 
@@ -247,7 +248,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         )}
       </Box>
 
-      <ChoicesField label="Tags" load={loadTags} value={tags} onChange={setTags} removeOnClick />
+      <ChoicesField label="Tags" load={loadTags} value={tags} onChange={setTags} removeOnClick normalize={normTag} />
 
       <Box sx={{ display: "flex", gap: 2 }}>
         <TextField

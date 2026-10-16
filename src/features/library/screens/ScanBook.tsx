@@ -23,7 +23,7 @@ const fillParent = { position: "absolute", inset: 0, width: "100%", height: "100
 type NotifyOptions = Parameters<typeof notify>[1];
 const ERROR_TOAST: NotifyOptions = { severity: "error", duration: 5000 };
 
-/** Every way a scan can fail ends the same: tell the user, then leave the scan screen. */
+/** Every way a scan can fail (camera, or a code that isn't an ISBN) ends the same: tell the user, then leave the scan screen. */
 function useBackWith() {
   const navigate = useNavigate();
   return (message: string, options: NotifyOptions = ERROR_TOAST) => {
@@ -36,7 +36,8 @@ function useBackWith() {
  * Both platforms scan from a live camera view inside the webview, so the viewfinder can fly to
  * wherever the code is. Desktop: a modal with the laptop's camera. Mobile: a full-screen page
  * with the back camera, which falls back to the platform's own scanner if the webview can't open
- * the camera. A successful scan is looked up and replaced by Add Book, prefilled.
+ * the camera. A scan is looked up and replaced by Add Book, prefilled (with just the ISBN if no
+ * plugin knows the book).
  */
 export default function ScanBook() {
   return isMobile() ? <MobileScan /> : <DesktopScan />;

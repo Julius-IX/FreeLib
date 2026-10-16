@@ -11,7 +11,7 @@ import { commands } from "@/lib/commands";
 import { notify } from "@/notifications/notify";
 import { defaultTagTypeId } from "../book-form/persistence";
 import { DateField } from "../book-form/DateField";
-import { normalizePartialDate, startsAfter } from "../book-form/inputs";
+import { normTag, normalizePartialDate, startsAfter } from "../book-form/inputs";
 
 type Kind = "tags" | "series" | "authors";
 type Entry = { id: number; name: string; birth?: string | null; death?: string | null };
@@ -108,7 +108,7 @@ export default function UpdateFilterFields() {
     setBusy(true);
     try {
       if (kind === "tags") {
-        await commands.db_crud.createTag({ tag: { tagTypeId: await defaultTagTypeId(), name: trimmed } });
+        await commands.db_crud.createTag({ tag: { tagTypeId: await defaultTagTypeId(), name: normTag(trimmed) } });
       } else if (kind === "series") {
         await commands.db_crud.createSeries({ name: trimmed });
       } else {

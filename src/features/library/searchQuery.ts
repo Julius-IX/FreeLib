@@ -1,4 +1,5 @@
 import type { BookFilter, ReadStatus } from "@/lib/types";
+import { normTag } from "./book-form/inputs";
 
 // The generated TS type has no optional fields, so every key must be present.
 export function emptyFilter(): BookFilter {
@@ -143,7 +144,7 @@ add(["title"], (f, v) => { f.title = v; });
 add(["blurb"], (f, v) => { f.blurb = v; });
 add(["notes", "note"], (f, v) => { f.notes = v; });
 add(["author"], (f, v) => { f.author = v; });
-add(["tag"], (f, v) => { f.tag = v; });
+add(["tag"], (f, v) => { f.tag = normTag(v); });
 add(["series"], (f, v) => { f.series = v; });
 add(["status"], (f, v) => {
   f.readStatus = STATUS[v.toLowerCase().replace(/[^a-z]/g, "")] ?? null;
