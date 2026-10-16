@@ -3,7 +3,23 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" viewport-fit="cover" />
+    <meta name="color-scheme" content="light dark" />
     <title>FreeLib</title>
+    <!--
+      Paint the page background before any JS runs, so there is no white flash while settings load.
+      First launch: the default theme's colours for the system light/dark mode. After that:
+      the exact background of the last theme used (AppThemeProvider saves it as "fl-boot-bg").
+    -->
+    <style>
+      html { background: #fef7ff; }
+      @media (prefers-color-scheme: dark) { html { background: #141218; } }
+    </style>
+    <script>
+      try {
+        var bg = localStorage.getItem("fl-boot-bg");
+        if (bg) document.documentElement.style.background = bg;
+      } catch (e) {}
+    </script>
   </head>
 
   <body>

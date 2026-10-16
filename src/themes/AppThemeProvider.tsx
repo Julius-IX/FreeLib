@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from "react";
+import { createContext, useContext, useLayoutEffect, ReactNode } from "react";
 import { ThemeProvider, CssBaseline, useMediaQuery } from "@mui/material";
 import { themes, ThemeName } from "./themes";
 import { useSetting } from "@/lib/settings";
@@ -16,6 +16,18 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
 
   const systemDark = useMediaQuery("(prefers-color-scheme: dark)");
   const resolved = mode === "system" ? (systemDark ? "dark" : "light") : mode;
+
+  // Keep the page background (index.html paints it before JS runs) in step with the theme, and
+  // remember it so the next launch starts on the right colour.
+  const bg = themes[name][resolved].palette.background.default;
+  useLayoutEffect(() => {
+    document.documentElement.style.background = bg;
+    try {
+      localStorage.setItem("fl-boot-bg", bg);
+    } catch {
+      /* storage unavailable: next launch falls back to the system light/dark colour */
+    }
+  }, [bg]);
 
   return (
     <ThemeCtx.Provider value={{ name, setName, mode, setMode }}>
