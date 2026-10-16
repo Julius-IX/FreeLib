@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { RouteObject } from "react-router-dom";
 import { getVersion } from "@tauri-apps/api/app";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, IconButton } from "@mui/material";
 import { ThemeSwatches } from "@/themes/ThemePicker";
 import { useAppTheme } from "@/themes/AppThemeProvider";
 import { themeLabel } from "@/themes/themes";
@@ -12,7 +12,10 @@ import { BackupSettings } from "./components/BackupSettings";
 import {
   Preference, Section, SelectPreference, SliderPreference, SwitchPreference,
 } from "./components/Preferences";
+import GitHubIcon from "@mui/icons-material/GitHub";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
+const REPO_URL = "https://github.com/Julius-IX/FreeLib";
 function VersionFooter() {
   const [version, setVersion] = useState<string | null>(null);
   useEffect(() => {
@@ -20,9 +23,18 @@ function VersionFooter() {
   }, []);
   if (!version) return null;
   return (
-    <Typography variant="caption" color="text.secondary" sx={{ display: "block", textAlign: "center", pt: 3 }}>
-      Version {version}
-    </Typography>
+    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.5, pt: 3 }}>
+      <Typography variant="caption" color="text.secondary">
+        Version {version}
+      </Typography>
+      <IconButton
+        size="small"
+        aria-label="Open the GitHub repository"
+        onClick={() => openUrl(REPO_URL).catch((e) => console.error("couldn't open the link:", e))}
+      >
+        <GitHubIcon fontSize="inherit" />
+      </IconButton>
+    </Box>
   );
 }
 
