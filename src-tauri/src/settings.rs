@@ -40,6 +40,9 @@ const KNOWN: &[&str] = &[
   "libraryColumns",
   PLUGINS_DISABLED,
   LINUX_X11_ON_WAYLAND,
+  "updates.checkOnStartup",
+  "updates.dismissedVersion",
+  "debug.camera",
 ];
 
 // SECTION: store

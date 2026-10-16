@@ -88,6 +88,8 @@ function SettingsHome() {
         </Section>
       )}
 
+      <UpdateSettings />
+
       <BackupSettings />
 
       <VersionFooter />
