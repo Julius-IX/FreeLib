@@ -82,6 +82,16 @@ impl Settings {
     serde_json::from_value(values.get(key)?.clone()).ok()
   }
 
+  /// Replaces every setting at once (used when a backup is imported). Keys the app doesn't
+  /// have are dropped, like on load. Nothing changes if the file can't be written.
+  pub fn replace(&self, mut next: Map<String, Value>) -> io::Result<()> {
+    next.retain(|k, _| KNOWN.contains(&k.as_str()));
+    let mut values = self.0.values.lock().unwrap();
+    save(&self.0.path, &next)?;
+    *values = next;
+    Ok(())
+  }
+
   pub fn set(&self, key: &str, value: Value) -> io::Result<()> {
     if !KNOWN.contains(&key) {
       return Err(io::Error::new(
@@ -262,6 +272,24 @@ mod tests {
     // gone from the file itself right away, not only from memory
     let on_disk: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(on_disk, json!({ "theme": "ocean" }));
+  }
+
+  #[test]
+  fn replace_swaps_everything_and_drops_unknown_keys() {
+    let path = temp_file();
+    let s = Settings::open(path.clone());
+    s.set("theme", json!("ocean")).unwrap();
+    s.set("mode", json!("dark")).unwrap();
+
+    let mut next = Map::new();
+    next.insert("theme".into(), json!("forest"));
+    next.insert("bogus".into(), json!(1));
+    s.replace(next).unwrap();
+
+    assert_eq!(s.get::<String>("theme").as_deref(), Some("forest"));
+    assert_eq!(s.get::<String>("mode"), None); // not in the replacement: gone
+    let on_disk: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(on_disk, json!({ "theme": "forest" }));
   }
 
   #[test]

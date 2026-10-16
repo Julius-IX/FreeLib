@@ -48,7 +48,7 @@ use tauri_plugin_fs::{FilePath, FsExt};
 
 use crate::settings::{PLUGINS_DISABLED, Settings};
 
-const DIR_NAME: &str = "plugins";
+pub(crate) const DIR_NAME: &str = "plugins";
 const LOAD_TIMEOUT: Duration = Duration::from_secs(2);
 const RUN_TIMEOUT: Duration = Duration::from_secs(10);
 const MEMORY_LIMIT: usize = 32 * 1024 * 1024;
@@ -967,6 +967,13 @@ impl Plugins {
       }
     }
     failures
+  }
+
+  /// Re-reads every plugin file (after a backup was imported). Failures are only logged, like at startup.
+  pub(crate) fn reload_all(&self) {
+    for f in self.reload() {
+      eprintln!("plugin not loaded: {}", f.report());
+    }
   }
 
   fn load_builtin(&self) -> Vec<Failure> {

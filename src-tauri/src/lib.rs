@@ -1,3 +1,4 @@
+mod backup;
 mod covers;
 mod database;
 mod filter;
