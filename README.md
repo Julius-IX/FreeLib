@@ -18,8 +18,6 @@ Add a book by scanning its barcode and the details are filled in automatically, 
 
 Built with Tauri, React and Rust. Focused on mobile but works on desktop too.
 
----
-
 ## Download
 
 Get the latest version from the [Releases page](https://github.com/Julius-IX/FreeLib/releases/latest).
@@ -33,8 +31,6 @@ Get the latest version from the [Releases page](https://github.com/Julius-IX/Fre
 macOS and iOS aren't distributed as a download. You can build them yourself, see [Building](#building).
 
 FreeLib isn't on the Play Store or F-Droid. Downloads come from the Releases page only.
-
----
 
 ## Install
 
@@ -62,8 +58,6 @@ To scan barcodes with a webcam on Linux you also need a few GStreamer packages, 
 The app checks GitHub for a newer version when it starts and shows a notice if there is one. You can turn this off, or check manually, under *Settings → Updates*.
 To update, download the new version from the Releases page and install it over the old one (on Linux, replace the old AppImage). Your library is kept.
 
----
-
 ## Plugins
 
 Book details come from lookup plugins. Every enabled plugin runs on a scan and their results are merged. When two plugins fill the same field, the earlier one wins. Lists like authors and tags are combined.
@@ -82,8 +76,6 @@ Google Books shares an anonymous quota that is usually used up, so add a free AP
 ```
 
 You can also bake it in at build time with `GOOGLE_BOOKS_API_KEY=your-key`. The saved setting wins.
-
----
 
 ## Writing a Plugin
 
@@ -107,8 +99,6 @@ Install it with the + button in the Plugins tab. The file is copied into the app
 Plugins you installed can be removed from the same tab. A plugin with a built-in's id replaces it, and removing it brings the built-in back.
 See [`src-tauri/plugins/openlibrary.js`](src-tauri/plugins/openlibrary.js) for a full example.
 
----
-
 ## Building
 
 Requires Node.js 24 or newer, Rust and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.
@@ -125,8 +115,6 @@ npm run tauri build
 ```
 
 For more detailed instructions see [Tauri docs](https://v2.tauri.app/distribute/).
-
----
 
 ## Linux: camera requirements
 
