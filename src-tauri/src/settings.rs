@@ -27,7 +27,13 @@ use tauri_groups::command;
 pub const PLUGINS_DISABLED: &str = "plugins.disabled";
 
 /// Every setting the app has. Keep in step with the keys in `src/lib/settings.ts`.
-const KNOWN: &[&str] = &["theme", "mode", "sidebarW", PLUGINS_DISABLED];
+const KNOWN: &[&str] = &[
+  "theme",
+  "mode",
+  "sidebarW",
+  "libraryColumns",
+  PLUGINS_DISABLED,
+];
 
 // SECTION: store
 

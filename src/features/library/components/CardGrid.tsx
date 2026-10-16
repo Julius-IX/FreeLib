@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
-import { Box, Slider } from "@mui/material";
+import { Box } from "@mui/material";
 import BookCard from "./BookCard";
 import { Book } from "@/lib/types";
 import { isMobile } from "@/util/misc";
+import { useLibraryColumns } from "../libraryColumns";
 
 export default function CardGrid({
   items,
@@ -12,11 +12,7 @@ export default function CardGrid({
   onOpen?: (book: Book) => void;
 }) {
   const isOnMobile = isMobile();
-  const defaultColumns = isOnMobile ? 3 : 6;
-  const [columns, setColumns] = useState(defaultColumns);
-
-  // Reset to the platform default if the mobile flag changes after mount
-  useEffect(() => setColumns(defaultColumns), [defaultColumns]);
+  const [columns] = useLibraryColumns();
 
   return (
     <Box
@@ -27,18 +23,6 @@ export default function CardGrid({
         minHeight: 0,
       }}
     >
-      { /* TODO: move this into settings */ }
-      <Slider
-        value={columns}
-        onChange={(_, v) => setColumns(v as number)}
-        min={1}
-        max={isOnMobile ? 5 : 10}
-        step={1}
-        marks
-        valueLabelDisplay="auto"
-        sx={{ flexShrink: 0 }}
-      />
-
       <Box
         sx={{
           flex: 1,
