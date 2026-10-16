@@ -110,13 +110,14 @@ fn too_big() -> CoverError {
   ))
 }
 
-/// The HTTP client used for cover downloads.
+/// The HTTP client builder used for cover downloads (and by `plugins`, so lookups get the same
+/// user agent and the same Android certificate handling).
 ///
 /// On Android, reqwest 0.13's default certificate check is rustls-platform-verifier, which has
 /// to be initialised from Java at startup. Passing custom roots via `tls_certs_only` makes reqwest verify against
 /// Mozilla's public roots and never touch the platform verifier. Desktop keeps the OS trust
 /// store, so corporate / user-installed CAs still work there.
-fn http_client() -> Result<reqwest::Client, reqwest::Error> {
+pub(crate) fn http_client_builder() -> reqwest::ClientBuilder {
   let builder = reqwest::Client::builder()
     .timeout(DOWNLOAD_TIMEOUT)
     .user_agent(concat!("free-lib/", env!("CARGO_PKG_VERSION")));
@@ -128,7 +129,11 @@ fn http_client() -> Result<reqwest::Client, reqwest::Error> {
       .filter_map(|der| reqwest::Certificate::from_der(der.as_ref()).ok()),
   );
 
-  builder.build()
+  builder
+}
+
+fn http_client() -> Result<reqwest::Client, reqwest::Error> {
+  http_client_builder().build()
 }
 
 async fn download(url: &str) -> Res<Vec<u8>> {
