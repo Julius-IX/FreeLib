@@ -57,6 +57,19 @@ export type BookFilter = {
   finishedTo: string | null;
 }
 
+export type BookInfo = {
+  title: string | null;
+  isbn: string | null;
+  publishDate: string | null;
+  blurb: string | null;
+  pageCount: number | null;
+  authors: string[] | null;
+  tags: string[] | null;
+  series: string | null;
+  seriesPosition: number | null;
+  cover: string | null;
+}
+
 export type BookInput = {
   title: string;
   isbn: string | null;
@@ -72,6 +85,46 @@ export type BookInput = {
 export type BookTag = {
   bookId: number;
   tagId: number;
+}
+
+export type InvalidField = {
+  field: string;
+  reason: string;
+}
+
+export type LookupOutcome = {
+  data: BookInfo | null;
+  sources: string[];
+  failures: PluginFailure[];
+  warnings: string[];
+}
+
+export type PluginFailure = {
+  plugin: string;
+  stage: string;
+  message: string;
+  report: string;
+}
+
+export type PluginInfo = {
+  id: string;
+  name: string;
+  version: string;
+  http: string[];
+  builtin: boolean;
+  enabled: boolean;
+  ignoreConfig: boolean;
+  configExample: string | null;
+}
+
+export type PluginResult = {
+  plugin: string;
+  complete: boolean;
+  data: BookInfo;
+  missing: string[];
+  invalid: InvalidField[];
+  unknown: string[];
+  logs: string[];
 }
 
 export type ReadStatus = "unread" | "inProgress" | "finished";
