@@ -58,4 +58,8 @@ export const commands = {
     setPluginConfig: (args: { id: string; config: string }) => invoke<void>("plugins__set_plugin_config", args),
     setPluginEnabled: (args: { id: string; enabled: boolean }) => invoke<void>("plugins__set_plugin_enabled", args),
   },
+  settings: {
+    getSettings: () => invoke<Record<string, unknown>>("settings__get_settings"),
+    setSetting: (args: { key: string; value: unknown }) => invoke<void>("settings__set_setting", args),
+  },
 } as const;
