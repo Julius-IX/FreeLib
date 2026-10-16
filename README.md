@@ -20,6 +20,50 @@ Built with Tauri, React and Rust. Focused on mobile but works on desktop too.
 
 ---
 
+## Download
+
+Get the latest version from the [Releases page](https://github.com/Julius-IX/FreeLib/releases/latest).
+
+| Platform | Download     |
+| -------- | ------------ |
+| Android  | `.apk`       |
+| Windows  | `-setup.exe` |
+| Linux    | `.AppImage`  |
+
+macOS and iOS aren't distributed as a download. You can build them yourself, see [Building](#building).
+
+FreeLib isn't on the Play Store or F-Droid. Downloads come from the Releases page only.
+
+---
+
+## Install
+
+**Android:**
+
+1. Download the `.apk` on your phone and open it. Android will ask you to allow installs from this source the first time.
+2. Google Play Protect may warn that the app is unrecognized, or block the install, because FreeLib isn't distributed through the Play Store. Tap *More details → Install anyway*.
+3. If there's no *Install anyway* option, turn off *Scan apps with Play Protect* temporarily (Play Store → your profile icon → Play Protect → settings), install the app, then turn it back on. Menu names vary a little between devices.
+
+**Windows:** Run the installer. If SmartScreen warns about an unknown publisher, choose *More info → Run anyway*.
+
+**Linux:** Make the AppImage executable and run it:
+
+```sh
+chmod +x FreeLib*.AppImage
+./FreeLib*.AppImage
+```
+
+If it won't start on Ubuntu, install FUSE 2 (`sudo apt install libfuse2`, or `libfuse2t64` on Ubuntu 24.04) or build the package yourself, see [Building](#building).
+
+To scan barcodes with a webcam on Linux you also need a few GStreamer packages, see [Linux: camera requirements](#linux-camera-requirements).
+
+### Updates
+
+The app checks GitHub for a newer version when it starts and shows a notice if there is one. You can turn this off, or check manually, under *Settings → Updates*.
+To update, download the new version from the Releases page and install it over the old one (on Linux, replace the old AppImage). Your library is kept.
+
+---
+
 ## Plugins
 
 Book details come from lookup plugins. Every enabled plugin runs on a scan and their results are merged. When two plugins fill the same field, the earlier one wins. Lists like authors and tags are combined.
@@ -67,7 +111,7 @@ See [`src-tauri/plugins/openlibrary.js`](src-tauri/plugins/openlibrary.js) for a
 
 ## Building
 
-Requires Node.js, Rust and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.
+Requires Node.js 24 or newer, Rust and the [Tauri prerequisites](https://tauri.app/start/prerequisites/) for your platform.
 
 ```sh
 npm install
@@ -79,6 +123,8 @@ Release build:
 ```sh
 npm run tauri build
 ```
+
+For more detailed instructions see [Tauri docs](https://v2.tauri.app/distribute/).
 
 ---
 
