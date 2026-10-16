@@ -6,6 +6,7 @@ import { ThemeSwatches } from "@/themes/ThemePicker";
 import { useAppTheme } from "@/themes/AppThemeProvider";
 import { themeLabel } from "@/themes/themes";
 import { libraryColumnsRange, useLibraryColumns } from "@/features/library/libraryColumns";
+import { BackupSettings } from "./components/BackupSettings";
 import { Preference, Section, SelectPreference, SliderPreference } from "./components/Preferences";
 
 function VersionFooter() {
@@ -59,6 +60,8 @@ function SettingsHome() {
           onCommit={saveColumns}
         />
       </Section>
+
+      <BackupSettings />
 
       <VersionFooter />
     </Box>
