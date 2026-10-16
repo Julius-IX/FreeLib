@@ -1,5 +1,8 @@
 import { platform } from "@tauri-apps/plugin-os";
 
+/** The GitHub repo of the app. Also what update checks look at for new releases. */
+export const REPO_URL = "https://github.com/Julius-IX/FreeLib";
+
 export const isMobile = () => {
   return platform() === "android" || platform() === "ios";
 }

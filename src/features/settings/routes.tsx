@@ -6,7 +6,7 @@ import { ThemeSwatches } from "@/themes/ThemePicker";
 import { useAppTheme } from "@/themes/AppThemeProvider";
 import { themeLabel } from "@/themes/themes";
 import { libraryColumnsRange, useLibraryColumns } from "@/features/library/libraryColumns";
-import { isLinux } from "@/util/misc";
+import { isLinux, REPO_URL } from "@/util/misc";
 import { useX11OnWayland } from "./linuxSettings";
 import { BackupSettings } from "./components/BackupSettings";
 import {
@@ -15,7 +15,6 @@ import {
 import GitHubIcon from "@mui/icons-material/GitHub";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
-const REPO_URL = "https://github.com/Julius-IX/FreeLib";
 function VersionFooter() {
   const [version, setVersion] = useState<string | null>(null);
   useEffect(() => {
