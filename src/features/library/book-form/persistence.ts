@@ -7,22 +7,28 @@ import type { Choice, Saved } from "./types";
  * Turns every choice into a saved row (in order) and returns the list with real ids.
  * A draft whose name already exists (e.g. prefilled from a scan) reuses that row instead of
  * creating a duplicate, and the same row is never returned twice.
+ * `normalize` is applied to the name of every draft before it's matched or created (tags: lower-case).
  */
 export async function saveNew<T extends { name: string }>(
   list: Choice[],
   loadExisting: () => Promise<T[]>,
   idOf: (row: T) => number,
-  create: (name: string) => Promise<number>
+  create: (name: string) => Promise<number>,
+  normalize: (name: string) => string = (n) => n
 ): Promise<Saved[]> {
   const existing = list.some((c) => c.id === null) ? await loadExisting() : [];
   const out: Saved[] = [];
+  const made = new Map<string, number>(); // rows created during this call, by lower-cased name
   for (const c of list) {
     let id = c.id;
+    const name = id === null ? normalize(c.name) : c.name;
     if (id === null) {
-      const hit = existing.find((e) => e.name.toLowerCase() === c.name.toLowerCase());
-      id = hit ? idOf(hit) : await create(c.name);
+      const key = name.toLowerCase();
+      const hit = existing.find((e) => e.name.toLowerCase() === key);
+      id = made.get(key) ?? (hit ? idOf(hit) : await create(name));
+      made.set(key, id);
     }
-    if (!out.some((o) => o.id === id)) out.push({ id, name: c.name });
+    if (!out.some((o) => o.id === id)) out.push({ id, name });
   }
   return out;
 }

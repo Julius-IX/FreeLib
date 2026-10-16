@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { commands } from "@/lib/commands";
 import { TagField } from "@/components/TagField";
 import { notify } from "@/notifications/notify";
@@ -19,6 +19,7 @@ export function ChoicesField({
   onChange,
   confirmOnSpace,
   removeOnClick,
+  normalize,
 }: {
   label: string;
   load: () => Promise<Choice[]>;
@@ -26,6 +27,8 @@ export function ChoicesField({
   onChange: (next: Choice[]) => void;
   confirmOnSpace?: boolean;
   removeOnClick?: boolean;
+  /** Applied to every name typed in (tags: lower-case). Existing options are left as they are. */
+  normalize?: (name: string) => string;
 }) {
   const [options, setOptions] = useState<Choice[]>([]);
   useEffect(() => {
@@ -33,6 +36,8 @@ export function ChoicesField({
       .then(setOptions)
       .catch((e) => notify(`Couldn't load ${label.toLowerCase()}: ${String(e)}`, { severity: "error" }));
   }, [load, label]);
+
+  const parseInput = useMemo(() => (text: string) => toDraft(text, normalize), [normalize]);
 
   return (
     <TagField<Choice>
@@ -42,7 +47,7 @@ export function ChoicesField({
       onChange={onChange}
       getLabel={(c) => c.name}
       getKey={choiceKey}
-      parseInput={toDraft}
+      parseInput={parseInput}
       confirmOnSpace={confirmOnSpace}
       removeOnClick={removeOnClick}
     />

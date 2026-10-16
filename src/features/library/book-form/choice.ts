@@ -1,8 +1,9 @@
 import type { Choice, DraftRef } from "./types";
 
 export const choiceKey = (c: Choice) => c.id ?? `new:${c.name.toLowerCase()}`;
-export const toDraft = (text: string): Choice | null => {
-  const name = text.trim();
+/** A typed name -> a new draft. `normalize` is for fields with a canonical form (tags: lower-case). */
+export const toDraft = (text: string, normalize: (name: string) => string = (n) => n): Choice | null => {
+  const name = normalize(text.trim());
   return name ? { id: null, name } : null;
 };
 

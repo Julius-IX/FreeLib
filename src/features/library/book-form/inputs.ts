@@ -47,6 +47,9 @@ export function startsAfter(birth: string, death: string): boolean {
   return first > last;
 }
 
+/** Tags are stored lower-case, so "Fantasy", "fantasy" and " FANTASY " are the same tag. */
+export const normTag = (s: string) => s.trim().toLowerCase();
+
 export const normIsbn = (s: string) => s.replace(/[\s-]/g, "").toUpperCase(); // 978-0-... == 9780...
 
 /**
