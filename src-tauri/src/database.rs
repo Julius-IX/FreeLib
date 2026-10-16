@@ -332,12 +332,18 @@ async fn delete_tag_type(pool: State<'_, SqlitePool>, tag_type_id: i64) -> Res<(
 
 // SECTION: tag
 
+/// Tag names are stored trimmed and lower-cased, whatever the caller sends. Doing it here (not in
+/// each caller) means no code path, scan, form or import, can leave a "Fantasy" next to a "fantasy".
+fn norm_tag_name(name: &str) -> String {
+  name.trim().to_lowercase()
+}
+
 #[command(db_crud)]
 async fn create_tag(pool: State<'_, SqlitePool>, tag: TagInput) -> Res<Tag> {
   Ok(
     sqlx::query_as::<_, Tag>("INSERT INTO tag (tag_type_id, name) VALUES (?, ?) RETURNING *")
       .bind(tag.tag_type_id)
-      .bind(tag.name)
+      .bind(norm_tag_name(&tag.name))
       .fetch_one(pool.inner())
       .await?,
   )
@@ -373,7 +379,7 @@ async fn update_tag(pool: State<'_, SqlitePool>, tag_id: i64, tag: TagInput) -> 
       "UPDATE tag SET tag_type_id = ?, name = ? WHERE tag_id = ? RETURNING *",
     )
     .bind(tag.tag_type_id)
-    .bind(tag.name)
+    .bind(norm_tag_name(&tag.name))
     .bind(tag_id)
     .fetch_one(pool.inner())
     .await?,
@@ -483,7 +489,34 @@ async fn get_book_tags(pool: State<'_, SqlitePool>, book_id: i64) -> Res<Vec<Tag
   )
 }
 
-/// Full replacement, authors and tags included.
+/// The book's markdown notes. `""` when it has none.
+#[command(db_crud)]
+async fn get_book_notes(pool: State<'_, SqlitePool>, book_id: i64) -> Res<String> {
+  Ok(
+    sqlx::query_scalar::<_, String>("SELECT notes FROM book WHERE book_id = ?")
+      .bind(book_id)
+      .fetch_one(pool.inner())
+      .await?,
+  )
+}
+
+/// Replaces the whole notes string. Separate from `update_book` so editing a
+/// book's details can never wipe its notes (and notes autosave stays cheap).
+#[command(db_crud)]
+async fn update_book_notes(pool: State<'_, SqlitePool>, book_id: i64, notes: String) -> Res<()> {
+  let n = sqlx::query("UPDATE book SET notes = ? WHERE book_id = ?")
+    .bind(notes)
+    .bind(book_id)
+    .execute(pool.inner())
+    .await?
+    .rows_affected();
+  if n == 0 {
+    return Err(sqlx::Error::RowNotFound.into());
+  }
+  Ok(())
+}
+
+/// Full replacement, authors and tags included. Notes are untouched.
 #[command(db_crud)]
 async fn update_book(pool: State<'_, SqlitePool>, book_id: i64, book: BookInput) -> Res<Book> {
   let mut tx = pool.begin().await?;

@@ -1,6 +1,6 @@
 import { RouteObject } from "react-router-dom";
 import { Box, Typography } from "@mui/material";
-import { ThemePicker } from "../../themes/ThemePicker";
+import { ThemePicker } from "@/themes/ThemePicker";
 
 function SettingsHome() {
   return (

@@ -1,40 +1,91 @@
-import { RouteObject, Link, useNavigate, useParams } from "react-router-dom";
-import { Box, Button, Typography } from "@mui/material";
-import { RouteHandle } from "../../tabs";
+import { RouteObject, useNavigate } from "react-router-dom";
+import { Box } from "@mui/material";
+import FabActionStack from "@/components/FabActionStack";
+import BookIcon from '@mui/icons-material/Book';
+import FolderIcon from '@mui/icons-material/Folder';
+import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
+import { isDesktop, isMobile, once } from "@/util/misc";
+import { RouteHandle } from "@/app/tabs";
+import UpdateFilterFields from "./screens/UpdateFilterFields";
+import NewBook from "./screens/NewBook";
+import ScanBook from "./screens/ScanBook";
+import CoverPreviewPage, { COVER_SEGMENT } from "./screens/CoverPreview";
+import TopBar from "./components/TopBar";
+import { LibraryProvider, useLibrary } from "./LibraryContext";
+import CardGrid from "./components/CardGrid";
+import BookView from "./screens/BookView";
+import { Book } from "@/lib/types";
+import BookNotes from "./screens/BookNotes";
+
+function LibraryHomeWrapper() {
+  return (
+    <LibraryProvider>
+      <LibraryHome />
+    </LibraryProvider>
+  );
+}
 
 function LibraryHome() {
+  const navigate = useNavigate();
+  const { books } = useLibrary();
+
+  const actions = [
+    { label: 'Add Book', icon: <BookIcon />, onClick: () => navigate(LibraryPath.AddBook) },
+    { label: 'Scan Book', icon: <QrCodeScannerIcon />, onClick: () => navigate(LibraryPath.Scan) },
+    { label: 'Update Filter Fields', icon: <FolderIcon />, onClick: () => navigate(LibraryPath.UpdateFilterFields) },
+  ];
+
+  const onBookClick = (book: Book) => navigate(bookView(book));
+
   return (
-    <Box sx={{ p: 2 }}>
-      <Typography variant="h5">Library</Typography>
-      <Button component={Link} to="item/1">Open item 1</Button>
+    <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
+      <TopBar />
+      <CardGrid items={books} onOpen={onBookClick} />
+      <FabActionStack
+        actions={actions}
+      />
+
     </Box>
   );
 }
 
-function ItemDetail() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  return (
-    <Box sx={{ p: 2 }}>
-      <Button onClick={() => navigate(-1)}>Back</Button>
-      <Typography variant="h5">Item {id}</Typography>
-      <Button component={Link} to="read">Read (hides bar)</Button>
-    </Box>
-  );
-}
+export const LibraryPath = {
+  Scan: "scan",
+  UpdateFilterFields: "update-filter-fields",
+  AddBook: "add-book",
+  ViewBook: "view-book/:bookId",
+  EditNotes: "view-book/:bookId/notes",
+  /** Nested under AddBook, mobile only: add-book/cover */
+  Cover: COVER_SEGMENT,
+} as const;
 
-function Reader() {
-  const navigate = useNavigate();
-  return (
-    <Box sx={{ p: 2 }}>
-      <Button onClick={() => navigate(-1)}>Close reader</Button>
-      <Typography>Full-screen reader, no bar.</Typography>
-    </Box>
-  );
-}
+export const bookView = (book: Book) => `view-book/${book.bookId}`;
+
+export type LibraryPath = (typeof LibraryPath)[keyof typeof LibraryPath];
+
+// Picked once, on first use. Desktop: add-book is a modal and the cover preview floats beside
+// it inside the same route. Mobile: add-book is a page and the preview is a nested route
+// (add-book/cover) with its own page.
+const addBookRoute = once((): RouteObject =>
+  isMobile()
+    ? {
+      path: LibraryPath.AddBook,
+      element: <NewBook />,
+      handle: { hideNav: true } satisfies RouteHandle,
+      children: [{ path: LibraryPath.Cover, element: <CoverPreviewPage /> }],
+    }
+    : {
+      path: LibraryPath.AddBook,
+      element: <NewBook />,
+      handle: { modal: true } satisfies RouteHandle,
+    }
+);
 
 export const libraryRoutes: RouteObject[] = [
-  { index: true, element: <LibraryHome /> },
-  { path: "item/:id", element: <ItemDetail /> },
-  { path: "item/:id/read", element: <Reader />, handle: { hideNav: true } satisfies RouteHandle },
+  { index: true, element: <LibraryHomeWrapper /> },
+  { path: LibraryPath.Scan, element: <ScanBook />, handle: { hideNav: isMobile(), modal: isDesktop() } satisfies RouteHandle },
+  { path: LibraryPath.UpdateFilterFields, element: <UpdateFilterFields />, handle: { hideNav: isMobile(), modal: isDesktop() } satisfies RouteHandle },
+  { path: LibraryPath.ViewBook, element: <BookView />, handle: { hideNav: isMobile() } satisfies RouteHandle },
+  { path: LibraryPath.EditNotes, element: <BookNotes/>, handle: { hideNav: isMobile() } satisfies RouteHandle },
+  addBookRoute(),
 ];

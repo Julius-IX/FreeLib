@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   Box, List, ListItemButton, ListItemIcon, ListItemText, Tooltip,
-  BottomNavigation, BottomNavigationAction, Paper, useMediaQuery, useTheme,
+  BottomNavigation, BottomNavigationAction, Paper,
 } from "@mui/material";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { Tab, RouteHandle, tabs } from "./tabs";
+import { isMobile } from "@/util/misc";
+import ModalHost from "@/modal/ModalHost";
 
 const SIDEBAR_MIN = 72; // icon-only rail
 const SIDEBAR_MAX = 400;
@@ -15,7 +17,11 @@ const clamp = (n: number) => Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, n));
 type TabRouter = ReturnType<typeof createMemoryRouter>;
 
 // Every tab gets its OWN router (its own history stack), independent of the others
-const makeRouter = (t: Tab) => createMemoryRouter(t.routes, { initialEntries: ["/"] });
+const makeRouter = (t: Tab) =>
+  createMemoryRouter(
+    [{ element: <ModalHost routes={t.routes} />, children: t.routes }],
+    { initialEntries: ["/"] }
+  );
 
 const atRoot = (r: TabRouter) => r.state.location.key === "default";
 
@@ -27,8 +33,7 @@ function useNavHidden(router: TabRouter) {
 }
 
 export default function AppLayout() {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isOnMobile = isMobile();
 
   const [activeId, setActiveId] = useState(tabs[0].id);
   const [stacks, setStacks] = useState(() =>
@@ -79,13 +84,13 @@ export default function AppLayout() {
     <Box
       sx={{
         display: "flex",
-        flexDirection: isMobile ? "column" : "row",
+        flexDirection: isOnMobile ? "column" : "row",
         height: "100dvh",
-        pt: isMobile ? "env(safe-area-inset-top)" : 0,
-        pb: isMobile && navHidden ? "env(safe-area-inset-bottom)" : 0,
+        pt: isOnMobile ? "env(safe-area-inset-top)" : 0,
+        pb: isOnMobile && navHidden ? "env(safe-area-inset-bottom)" : 0,
       }}
     >
-      {!isMobile && !navHidden && (
+      {!isOnMobile && !navHidden && (
         <Paper
           square
           elevation={0}
@@ -135,14 +140,20 @@ export default function AppLayout() {
         {tabs.map((t) => (
           <Box
             key={`${t.id}-${stacks[t.id].gen}`}
-            sx={{ display: t.id === activeId ? "block" : "none", height: "100%", overflowY: "auto" }}
+            sx={{
+              display: t.id === activeId ? "block" : "none",
+              height: "100%",
+              overflowY: "auto",
+              scrollbarWidth: "none",
+              "&::-webkit-scrollbar": { display: "none" },
+            }}
           >
             <RouterProvider router={stacks[t.id].router} />
           </Box>
         ))}
       </Box>
 
-      {isMobile && !navHidden && (
+      {isOnMobile && !navHidden && (
         <Paper elevation={3} sx={{ pb: "env(safe-area-inset-bottom)" }}>
           <BottomNavigation
             showLabels

@@ -4,9 +4,25 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE author (
     author_id INTEGER NOT NULL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
-    birth_date DATE CHECK (birth_date IS NULL OR date(birth_date) = birth_date),
-    death_date DATE CHECK (death_date IS NULL OR date(death_date) = death_date),
-    CHECK (birth_date IS NULL OR death_date IS NULL OR death_date >= birth_date)
+    birth_date TEXT CHECK (
+        birth_date IS NULL
+        OR birth_date GLOB '[0-9][0-9][0-9][0-9]'
+        OR (birth_date GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]'
+            AND date(birth_date || '-01') IS NOT NULL)
+        OR date(birth_date) = birth_date
+    ),
+    death_date TEXT CHECK (
+        death_date IS NULL
+        OR death_date GLOB '[0-9][0-9][0-9][0-9]'
+        OR (death_date GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]'
+            AND date(death_date || '-01') IS NOT NULL)
+        OR date(death_date) = death_date
+    ),
+    CHECK (
+        birth_date IS NULL OR death_date IS NULL
+        OR (birth_date || substr('0000-01-01', length(birth_date) + 1))
+           <= (death_date || substr('9999-12-31', length(death_date) + 1))
+    )
 );
 
 CREATE TABLE series (
@@ -14,6 +30,7 @@ CREATE TABLE series (
     name TEXT NOT NULL UNIQUE
 );
 
+-- Cover path is derived from the book's ISBN
 CREATE TABLE book (
     book_id INTEGER NOT NULL PRIMARY KEY,
     title TEXT NOT NULL,
@@ -24,7 +41,8 @@ CREATE TABLE book (
     blurb TEXT,
     page_count INTEGER CHECK (page_count > 0),
     series_id INTEGER REFERENCES series (series_id),
-    series_position REAL    -- REAL allows 1.5 novellas
+    series_position REAL,    -- REAL allows 1.5 novellas
+    notes TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE book_author (
@@ -41,7 +59,7 @@ CREATE TABLE tag_type (
 CREATE TABLE tag (
     tag_id INTEGER NOT NULL PRIMARY KEY,
     tag_type_id INTEGER NOT NULL REFERENCES tag_type (tag_type_id),
-    name TEXT NOT NULL,
+    name TEXT NOT NULL COLLATE NOCASE,
     UNIQUE (tag_type_id, name)
 );
 

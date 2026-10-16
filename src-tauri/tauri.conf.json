@@ -18,10 +18,21 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": [
+          "**"
+        ]
+      }
     }
   },
   "bundle": {
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    },
     "active": true,
     "targets": "all",
     "icon": [
@@ -31,5 +42,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "fs": {
+      "requireLiteralLeadingDot": false
+    }
   }
 }

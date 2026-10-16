@@ -1,7 +1,7 @@
 //! One struct per table in migrations/0001_initial.sql.
 //!
 //! `FromRow` reads them out of sqlx, `Serialize` sends them over IPC, and
-//! `TsType` emits the matching `export interface` into src/lib/types.ts.
+//! `TsType` emits the matching `export type` into src/lib/types.ts.
 //! Dates are ISO `YYYY-MM-DD` text (SQLite has no real date type).
 
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,9 @@ pub struct Series {
   pub name: String,
 }
 
+/// `book.notes` is not mapped here on purpose: notes can be long, and every list /
+/// filter query returns whole `Book`s. Read and write them with
+/// `get_book_notes` / `update_book_notes`.
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, TsType)]
 #[serde(rename_all = "camelCase")]
 pub struct Book {
