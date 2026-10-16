@@ -355,6 +355,14 @@ fn push_date(qb: &mut QueryBuilder<'_, Sqlite>, col: &str, b: &DateBound) {
 
 // END DATES
 
+/// A full date as `YYYY-MM-DD`, from whatever format a provider uses ("March 7, 2004", "2004/3/7"...).
+/// `None` for anything that isn't a single day, including a bare year or month: a partial date
+/// expands to different days depending on `end`, so those two disagree.
+pub(crate) fn parse_full_date(raw: &str) -> Option<String> {
+  let first = parse_date(raw, false)?;
+  (parse_date(raw, true)? == first).then_some(first)
+}
+
 /// Swaps a reversed range, so `min = 500, max = 100` behaves like 100..500.
 fn int_bound(min: Option<i64>, max: Option<i64>) -> (Option<i64>, Option<i64>) {
   match (min, max) {
