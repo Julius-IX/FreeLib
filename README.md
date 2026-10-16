@@ -16,7 +16,7 @@ Add a book by scanning its barcode and the details are filled in automatically, 
 - Backup and restore
 - Light and dark themes
 
-Built with Tauri, React and Rust for desktop and mobile.
+Built with Tauri, React and Rust. Focused on mobile but works on desktop too.
 
 ---
 
