@@ -34,7 +34,7 @@
 
 use std::{
   collections::HashSet,
-  path::{Path, PathBuf},
+  path::PathBuf,
   sync::{Arc, Mutex},
   time::{Duration, Instant},
 };
@@ -1386,7 +1386,10 @@ mod tests {
     let root =
       std::env::temp_dir().join(format!("free-lib-plugin-tests-{}-{n}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
-    Plugins::new(root.join(DIR_NAME), Settings::open(root.join("settings.json")))
+    Plugins::new(
+      root.join(DIR_NAME),
+      Settings::open(root.join("settings.json")),
+    )
   }
 
   fn loaded(code: &str) -> Plugins {
