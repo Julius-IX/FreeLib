@@ -1,7 +1,7 @@
 [package]
 name = "free-lib"
 version = "0.1.0"
-description = "A Tauri App"
+description = "A book reading and collection tracker"
 authors = ["you"]
 edition = "2024"
 
