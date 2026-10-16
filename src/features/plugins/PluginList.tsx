@@ -44,10 +44,6 @@ export function PluginList() {
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-      <Typography variant="body2" color="text.secondary">
-        Scanning a barcode asks every plugin that's on and combines what they find.
-      </Typography>
-
       {plugins.length === 0 && <Typography variant="body2">No plugins installed.</Typography>}
       {noneOn && <Alert severity="warning">Every plugin is off, so scanned books can't be looked up.</Alert>}
 
