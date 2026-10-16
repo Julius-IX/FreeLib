@@ -13,7 +13,8 @@ export type Lookup = { status: "idle" } | { status: "busy" } | { status: "failed
 
 /**
  * Everything the live (webview camera) scanners share: camera -> lock-on -> lookup -> Add Book.
- * `onFailed` is for a screen that wants to react to a failed lookup itself (mobile goes back).
+ * `onFailed` is for a screen that wants to react to a code it can't use itself (mobile goes back).
+ * A real ISBN that no plugin knows isn't a failure here: it opens Add Book with the ISBN filled in.
  */
 export function useScanFlow(facing: Facing, onFailed?: (message: string) => void) {
   const openScanned = useOpenScanned();

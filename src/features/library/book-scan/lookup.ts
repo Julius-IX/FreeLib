@@ -1,78 +1,77 @@
+import { commands } from "@/lib/commands";
+import type { BookInfo, LookupOutcome } from "@/lib/types";
 import type { BookDraft } from "../book-form/types";
-import { isValidIsbn, normIsbn } from "../book-form/inputs";
-import { sleep } from "@/util/async";
+import { isValidIsbn, normIsbn, normTag } from "../book-form/inputs";
 
-/** TODO: change after plugin backend is done
- * MOCK. None of this talks to anything yet.
+/**
+ * Scanned code -> backend -> every lookup plugin (Open Library, Google Books, ...) -> merged
+ * -> a `BookDraft` for the Add Book form. The merging happens in Rust (src-tauri/src/plugins.rs);
+ * this file only turns its answer into the form's draft type and into a message for the user.
  *
- * The real flow will be:   scanned code -> backend request -> plugin formats the response -> BookDraft
- * and this file is where those two middle steps get swapped in. `lookupBook` is the only export
- * the UI uses, so replacing `requestLookup` (backend call) and `formatResponse` (plugin) leaves
- * the scan screens untouched.
+ * `lookupBook` is the only export the scan screens use.
  */
 
 /** Thrown for anything the user should be told about (shown as-is in a notification). */
 export class LookupError extends Error { }
 
-/** What a provider might send back. Provider-shaped, NOT our Book type: the plugin maps it. */
-type RawLookupResponse = {
-  isbn: string;
-  title: string;
-  authors: { name: string }[];
-  subjects: string[];
-  series: string | null; // "Name #3"
-  published: string; // free-form provider date
-  pages: number | null;
-  description: string | null;
+/** The plugins' book properties -> the form's draft. Authors, tags and series arrive as names. */
+function toDraft(info: BookInfo, isbn: string): BookDraft {
+  return {
+    title: info.title ?? undefined,
+    isbn, // always the code that was scanned, whatever the plugins say
+    authors: info.authors?.map((name) => ({ name })),
+    tags: info.tags?.map((name) => ({ name: normTag(name) })),
+    series: info.series ? { name: info.series } : null,
+    seriesPosition: info.seriesPosition,
+    publishDate: info.publishDate, // already YYYY-MM-DD
+    pageCount: info.pageCount,
+    blurb: info.blurb,
+    cover: info.cover, // a link; the form downloads it when the book is saved
+  };
+}
+
+/** What to tell the user when no plugin found the book. */
+function allFailedMessage(isbn: string, outcome: LookupOutcome): string {
+  const { failures } = outcome;
+  const names = failures.map((f) => f.plugin).join(", ");
+  if (failures.every((f) => f.stage === "not_found")) {
+    return `No book found for ISBN ${isbn} (tried ${names})`;
+  }
+  const reasons = failures.map((f) => `${f.plugin}: ${f.message}`).join("; ");
+  return `Couldn't look this book up. Every lookup plugin failed: ${reasons}`;
+}
+
+/** What a scan turns into: the draft for the Add Book form, and what to tell the user if the lookup found nothing. */
+export type LookupResult = {
+  draft: BookDraft;
+  /** Set when no plugin found the book. The draft then holds just the ISBN. */
+  problem?: string;
 };
 
-const MOCK_LATENCY_MS = 900;
-
-/** MOCK backend request. Pretends the network took a moment and every valid ISBN is a hit. */
-async function requestLookup(code: string): Promise<RawLookupResponse> {
-  await sleep(MOCK_LATENCY_MS);
+/**
+ * Scanned code -> a draft to prefill the Add Book form with.
+ *
+ * A valid ISBN always gets a draft: when every plugin fails (not found, errors, none turned on)
+ * the draft is just the ISBN and `problem` says why, so the user still lands in the form with the
+ * one thing the scan did tell us. Only a code that isn't an ISBN rejects, with a `LookupError`.
+ */
+export async function lookupBook(code: string): Promise<LookupResult> {
   const isbn = normIsbn(code);
   if (!isValidIsbn(isbn)) throw new LookupError(`"${code}" isn't an ISBN, so no book could be looked up`);
-  return {
-    isbn,
-    title: "The Mock Lookup Chronicles",
-    authors: [{ name: "Ada Placeholder" }, { name: "Sam Stubb" }],
-    subjects: ["Fantasy", "Adventure"],
-    series: "Mocked Realms #2",
-    published: "March 7, 2004",
-    pages: 412,
-    description: "A simulated response, so the Add Book form has something to fill in.",
-  };
-}
+  const justTheIsbn: BookDraft = { isbn };
 
-const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
+  let outcome: LookupOutcome;
+  try {
+    outcome = await commands.plugins.lookupBook({ isbn });
+  } catch (e) {
+    console.warn(String(e));
+    return { draft: justTheIsbn, problem: String(e) }; // e.g. no lookup plugins installed
+  }
 
-/** "March 7, 2004" -> "2004-03-07". Anything it can't read becomes null (left blank in the form). */
-function toIsoDate(text: string): string | null {
-  const m = /^([a-z]+)\s+(\d{1,2}),\s*(\d{4})$/i.exec(text.trim());
-  const month = m ? MONTHS.indexOf(m[1].toLowerCase()) + 1 : 0;
-  if (!m || month === 0) return null;
-  return `${m[3]}-${String(month).padStart(2, "0")}-${m[2].padStart(2, "0")}`;
-}
+  // Full details for whoever is debugging a plugin; the user only sees the summary below.
+  for (const f of outcome.failures) console.warn(f.report);
+  for (const w of outcome.warnings) console.warn(`[plugin warning] ${w}`);
 
-/** MOCK plugin: provider response -> the form's draft type. */
-function formatResponse(raw: RawLookupResponse): BookDraft {
-  const series = /^(.*?)\s*#(\d+(?:\.\d+)?)$/.exec(raw.series ?? "");
-  return {
-    title: raw.title,
-    isbn: raw.isbn,
-    authors: raw.authors.map((a) => ({ name: a.name })),
-    tags: raw.subjects.map((name) => ({ name })),
-    series: series ? { name: series[1] } : raw.series ? { name: raw.series } : null,
-    seriesPosition: series ? Number(series[2]) : null,
-    publishDate: toIsoDate(raw.published),
-    pageCount: raw.pages,
-    blurb: raw.description,
-    cover: null, // no real image to download yet
-  };
-}
-
-/** Scanned code -> a draft to prefill the Add Book form with. Rejects with a `LookupError`. */
-export async function lookupBook(code: string): Promise<BookDraft> {
-  return formatResponse(await requestLookup(code));
+  if (!outcome.data) return { draft: justTheIsbn, problem: allFailedMessage(isbn, outcome) };
+  return { draft: toDraft(outcome.data, isbn) };
 }
