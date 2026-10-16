@@ -5,8 +5,7 @@ import { notify } from "@/notifications/notify";
 import { REPO_URL } from "@/util/misc";
 
 /**
- * Update checking: asks GitHub for the repo's releases, picks the NEWEST one (never just the
- * first the API returns), and compares it with the running version.
+ * Update checking: asks GitHub for the repo's releases, and compares it with the running version.
  *
  * "Don't show again" is stored as the version it was ticked for. A newer release is a
  * different version, so it is shown again; the toggle resets itself with no extra bookkeeping.
@@ -29,8 +28,6 @@ export type Update = {
   name: string;
 };
 
-// SECTION: versions
-
 const parse = (v: string) =>
   v
     .trim()
@@ -51,8 +48,6 @@ export function compareVersions(a: string, b: string): number {
 }
 
 const clean = (v: string) => v.trim().replace(/^v/i, "");
-
-// SECTION: fetching
 
 type GithubRelease = {
   tag_name: string;
@@ -98,8 +93,6 @@ export async function fetchAvailableUpdate(pretendCurrent?: string): Promise<Upd
   };
 }
 
-// SECTION: settings
-
 export const useCheckOnStartup = () =>
   useSetting<boolean>(CHECK_ON_STARTUP_KEY, true, isBoolean);
 
@@ -118,8 +111,6 @@ export const useIsDismissed = (version: string) => {
   const [saved] = useSetting<string>(DISMISSED_KEY, "", isString);
   return saved !== "" && compareVersions(saved, version) === 0;
 };
-
-// SECTION: shared state (what the dialog shows, whether a check is running)
 
 type State = { update: Update | null; open: boolean; checking: boolean };
 let state: State = { update: null, open: false, checking: false };
@@ -163,8 +154,6 @@ export async function checkForUpdates(manual: boolean, pretendCurrent?: string) 
 export const checkOnStartup = () => {
   if (getSetting(CHECK_ON_STARTUP_KEY, true, isBoolean)) void checkForUpdates(false);
 };
-
-// SECTION: debug helpers (used by the Debug section of the settings, dev builds)
 
 /** Opens the dialog with a made-up newer version. No network. */
 export const debugShowUpdate = () =>

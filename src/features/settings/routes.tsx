@@ -9,6 +9,8 @@ import { libraryColumnsRange, useLibraryColumns } from "@/features/library/libra
 import { isLinux, REPO_URL } from "@/util/misc";
 import { useX11OnWayland } from "./linuxSettings";
 import { BackupSettings } from "./components/BackupSettings";
+import { UpdateSettings } from "./components/UpdateSettings";
+import { DebugSettings } from "./components/DebugSettings";
 import {
   Preference, Section, SelectPreference, SliderPreference, SwitchPreference,
 } from "./components/Preferences";
@@ -91,6 +93,8 @@ function SettingsHome() {
       <UpdateSettings />
 
       <BackupSettings />
+
+      <DebugSettings />
 
       <VersionFooter />
     </Box>

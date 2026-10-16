@@ -5,6 +5,7 @@ import type { Found } from "./geometry";
 import { acquireCamera, dropCamera, releaseCamera, type Facing } from "./cameraStream";
 import { classify, type CameraProblem } from "./cameraProblem";
 import { createDecoder, createMotionSampler, createStallWatch, paint } from "./frameTools";
+import { cameraDebugEnabled } from "@/features/settings/debugSettings";
 
 /**
  * Reads codes from a camera with ZXing (pure JS). The browser `BarcodeDetector` API isn't in
@@ -171,7 +172,7 @@ export function useWebcamScanner(
         const describe = () => describeCamera(track, video, stats);
 
         cleanups.push(countPresented(video, stats));
-        if (import.meta.env.DEV) {
+        if (cameraDebugEnabled()) {
           const dbg = setInterval(() => {
             const line = describe();
             console.log("[scan]", line);

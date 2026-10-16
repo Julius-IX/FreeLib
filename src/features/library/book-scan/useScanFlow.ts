@@ -22,7 +22,7 @@ export function useScanFlow(facing: Facing, onFailed?: (message: string) => void
   const [attempt, setAttempt] = useState(0);
   const [lookup, setLookup] = useState<Lookup>({ status: "idle" });
   const [target, setTarget] = useState<Rect | null>(null);
-  const [debug, setDebug] = useState(""); // dev builds only: live camera stats
+  const [debug, setDebug] = useState(""); // live camera stats, only filled when the camera debug setting is on
 
   const alive = useAlive();
 
@@ -41,7 +41,7 @@ export function useScanFlow(facing: Facing, onFailed?: (message: string) => void
     },
     attempt,
     facing,
-    import.meta.env.DEV ? setDebug : undefined
+    setDebug
   );
 
   const retry = () => {

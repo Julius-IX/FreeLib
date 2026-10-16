@@ -12,6 +12,7 @@ import { ScanOverlay } from "../book-scan/ScanOverlay";
 import { useOpenScanned } from "../book-scan/useOpenScanned";
 import { useScanFlow } from "../book-scan/useScanFlow";
 import { CAMERA_PROBLEM_TEXT } from "../book-scan/cameraProblem";
+import { cameraDebugEnabled } from "@/features/settings/debugSettings";
 
 const STARTING_TEXT = "Starting camera…";
 const LOOKING_UP_TEXT = "Looking up book…";
@@ -58,7 +59,7 @@ function MobileScan() {
     <LiveMobileScan
       onUnavailable={(reason) => {
         console.warn("live camera unavailable, using the system scanner:", reason);
-        if (import.meta.env.DEV) notify(`Live camera unavailable (${reason}), using the system scanner`, { severity: "warning", duration: 8000 });
+        if (cameraDebugEnabled()) notify(`Live camera unavailable (${reason}), using the system scanner`, { severity: "warning", duration: 8000 });
         setStage("native");
       }}
     />
@@ -249,7 +250,7 @@ function DesktopScan() {
             Hold the book's barcode or a QR code steady in front of the camera.
           </Typography>
         )}
-        {import.meta.env.DEV && debug && (
+        {debug && (
           <Typography variant="caption" color="text.disabled" sx={{ fontFamily: "monospace", wordBreak: "break-all" }}>
             {debug}
           </Typography>
