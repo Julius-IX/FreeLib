@@ -59,7 +59,7 @@ CREATE TABLE tag_type (
 CREATE TABLE tag (
     tag_id INTEGER NOT NULL PRIMARY KEY,
     tag_type_id INTEGER NOT NULL REFERENCES tag_type (tag_type_id),
-    name TEXT NOT NULL,
+    name TEXT NOT NULL COLLATE NOCASE,
     UNIQUE (tag_type_id, name)
 );
 
