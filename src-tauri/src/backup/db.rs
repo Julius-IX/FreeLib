@@ -12,17 +12,21 @@ use sqlx::{
 
 use super::names::{isbn_key, name_key};
 use super::{BackupError, ImportReport, Res};
-use crate::models::{Author, Book, BookAuthor, BookTag, Reading, Series, Tag, TagType};
+use crate::models::{
+  Author, Book, BookAuthor, BookCategory, BookTag, Category, Reading, Series, Tag, TagType,
+};
 
 pub(super) struct BackupData {
   pub(super) authors: Vec<Author>,
   pub(super) series: Vec<Series>,
   pub(super) tag_types: Vec<TagType>,
   pub(super) tags: Vec<Tag>,
+  pub(super) categories: Vec<Category>,
   pub(super) books: Vec<Book>,
   pub(super) notes: HashMap<i64, String>,
   pub(super) book_authors: Vec<BookAuthor>,
   pub(super) book_tags: Vec<BookTag>,
+  pub(super) book_categories: Vec<BookCategory>,
   pub(super) readings: Vec<Reading>,
 }
 
@@ -66,6 +70,9 @@ pub(super) async fn read_backup_db(path: &Path) -> Res<BackupData> {
     tags: sqlx::query_as("SELECT tag_id, tag_type_id, name FROM tag")
       .fetch_all(&mut conn)
       .await?,
+    categories: sqlx::query_as("SELECT category_id, name, color FROM category")
+      .fetch_all(&mut conn)
+      .await?,
     books: sqlx::query_as(
       "SELECT book_id, title, isbn, publish_date, blurb, page_count, series_id, series_position
        FROM book ORDER BY book_id",
@@ -81,6 +88,9 @@ pub(super) async fn read_backup_db(path: &Path) -> Res<BackupData> {
       .fetch_all(&mut conn)
       .await?,
     book_tags: sqlx::query_as("SELECT book_id, tag_id FROM book_tag")
+      .fetch_all(&mut conn)
+      .await?,
+    book_categories: sqlx::query_as("SELECT book_id, category_id FROM book_category")
       .fetch_all(&mut conn)
       .await?,
     readings: sqlx::query_as(
@@ -118,9 +128,11 @@ pub(super) async fn replace_db(
   // children first
   for table in [
     "reading",
+    "book_category",
     "book_tag",
     "book_author",
     "book",
+    "category",
     "tag",
     "tag_type",
     "series",
@@ -162,6 +174,14 @@ pub(super) async fn replace_db(
       .execute(&mut *tx)
       .await?;
   }
+  for c in &data.categories {
+    sqlx::query("INSERT INTO category (category_id, name, color) VALUES (?, ?, ?)")
+      .bind(c.category_id)
+      .bind(&c.name)
+      .bind(&c.color)
+      .execute(&mut *tx)
+      .await?;
+  }
   for b in &data.books {
     sqlx::query(
       "INSERT INTO book (book_id, title, isbn, publish_date, blurb, page_count, series_id,
@@ -194,6 +214,13 @@ pub(super) async fn replace_db(
       .execute(&mut *tx)
       .await?;
   }
+  for l in &data.book_categories {
+    sqlx::query("INSERT INTO book_category (book_id, category_id) VALUES (?, ?)")
+      .bind(l.book_id)
+      .bind(l.category_id)
+      .execute(&mut *tx)
+      .await?;
+  }
   for r in &data.readings {
     sqlx::query(
       "INSERT INTO reading (reading_id, book_id, date_started, date_finished) VALUES (?, ?, ?, ?)",
@@ -211,6 +238,7 @@ pub(super) async fn replace_db(
   report.authors_added = data.authors.len();
   report.series_added = data.series.len();
   report.tags_added = data.tags.len();
+  report.categories_added = data.categories.len();
   Ok(())
 }
 
@@ -230,6 +258,7 @@ struct IdMaps {
   authors: IdMap,
   series: IdMap,
   tags: IdMap,
+  categories: IdMap,
 }
 
 /// Merges the backup's rows into the live database in one transaction. With `overwrite`, a book
@@ -247,10 +276,12 @@ pub(super) async fn merge_db(
   let series = merge_series(&mut tx, data, report).await?;
   let tag_types = merge_tag_types(&mut tx, data).await?;
   let tags = merge_tags(&mut tx, data, &tag_types, report).await?;
+  let categories = merge_categories(&mut tx, data, overwrite, report).await?;
   let maps = IdMaps {
     authors,
     series,
     tags,
+    categories,
   };
   let existed = merge_books(&mut tx, data, &maps, overwrite, report).await?;
 
@@ -407,6 +438,52 @@ async fn merge_tags(
   Ok(tag_map)
 }
 
+/// Categories are matched by name; missing ones are added. With `overwrite`, a matched category
+/// takes the backup's color.
+async fn merge_categories(
+  tx: &mut Tx<'_>,
+  data: &BackupData,
+  overwrite: bool,
+  report: &mut ImportReport,
+) -> Res<IdMap> {
+  let mut host_categories: HashMap<String, i64> =
+    sqlx::query_as::<_, (i64, String)>("SELECT category_id, name FROM category")
+      .fetch_all(&mut **tx)
+      .await?
+      .into_iter()
+      .map(|(id, n)| (name_key(&n), id))
+      .collect();
+  let mut category_map = IdMap::new();
+  for c in &data.categories {
+    let id = match host_categories.get(&name_key(&c.name)) {
+      Some(&id) => {
+        if overwrite {
+          sqlx::query("UPDATE category SET color = ? WHERE category_id = ?")
+            .bind(&c.color)
+            .bind(id)
+            .execute(&mut **tx)
+            .await?;
+        }
+        id
+      }
+      None => {
+        let id: i64 = sqlx::query_scalar(
+          "INSERT INTO category (name, color) VALUES (?, ?) RETURNING category_id",
+        )
+        .bind(&c.name)
+        .bind(&c.color)
+        .fetch_one(&mut **tx)
+        .await?;
+        host_categories.insert(name_key(&c.name), id);
+        report.categories_added += 1;
+        id
+      }
+    };
+    category_map.insert(c.category_id, id);
+  }
+  Ok(category_map)
+}
+
 /// The live books, for matching: by normalised ISBN, and (only for books without an ISBN) by title.
 struct BookIndex {
   by_isbn: HashMap<String, i64>,
@@ -475,6 +552,12 @@ async fn merge_books(
       .iter()
       .filter_map(|l| Some((l.book_id, *maps.tags.get(&l.tag_id)?))),
   );
+  let categories_of = group(
+    data
+      .book_categories
+      .iter()
+      .filter_map(|l| Some((l.book_id, *maps.categories.get(&l.category_id)?))),
+  );
   let readings_of = group(data.readings.iter().map(|r| (r.book_id, r)));
 
   for b in &data.books {
@@ -506,12 +589,21 @@ async fn merge_books(
       .get(&b.book_id)
       .map(Vec::as_slice)
       .unwrap_or(&[]);
-    link_book(tx, host_id, &of(&authors_of), &of(&tags_of), readings).await?;
+    link_book(
+      tx,
+      host_id,
+      &of(&authors_of),
+      &of(&tags_of),
+      &of(&categories_of),
+      readings,
+    )
+    .await?;
   }
   Ok(existed)
 }
 
-/// Replaces a live book's details with the backup's and clears its authors, tags and readings
+/// Replaces a live book's details with the backup's and clears its authors, tags, categories and
+/// readings
 /// (`link_book` puts the backup's back). The ISBN is what matched, so it's left as it is here.
 async fn overwrite_book(
   tx: &mut Tx<'_>,
@@ -534,7 +626,7 @@ async fn overwrite_book(
   .bind(id)
   .execute(&mut **tx)
   .await?;
-  for table in ["book_author", "book_tag", "reading"] {
+  for table in ["book_author", "book_tag", "book_category", "reading"] {
     sqlx::query(&format!("DELETE FROM {table} WHERE book_id = ?"))
       .bind(id)
       .execute(&mut **tx)
@@ -563,12 +655,13 @@ async fn insert_book(tx: &mut Tx<'_>, b: &Book, series_id: Option<i64>, notes: &
   Ok(id)
 }
 
-/// Attaches authors, tags and readings (already mapped to live ids) to a live book.
+/// Attaches authors, tags, categories and readings (already mapped to live ids) to a live book.
 async fn link_book(
   tx: &mut Tx<'_>,
   book_id: i64,
   author_ids: &[i64],
   tag_ids: &[i64],
+  category_ids: &[i64],
   readings: &[&Reading],
 ) -> Res<()> {
   for author_id in author_ids {
@@ -582,6 +675,13 @@ async fn link_book(
     sqlx::query("INSERT OR IGNORE INTO book_tag (book_id, tag_id) VALUES (?, ?)")
       .bind(book_id)
       .bind(tag_id)
+      .execute(&mut **tx)
+      .await?;
+  }
+  for category_id in category_ids {
+    sqlx::query("INSERT OR IGNORE INTO book_category (book_id, category_id) VALUES (?, ?)")
+      .bind(book_id)
+      .bind(category_id)
       .execute(&mut **tx)
       .await?;
   }

@@ -132,6 +132,7 @@ export type ImportReport = {
   authorsAdded: number;
   seriesAdded: number;
   tagsAdded: number;
+  categoriesAdded: number;
   coversCopied: number;
   pluginFilesCopied: number;
 }

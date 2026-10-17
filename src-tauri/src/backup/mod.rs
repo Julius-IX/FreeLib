@@ -23,7 +23,7 @@
 //! - **Override merge** ("backup priority"): like append, but a book that exists here is
 //!   overwritten by the backup's version (details, authors, tags, notes, readings and cover).
 //!
-//! Both merges also replace the settings file, add authors / series / tags that are missing,
+//! Both merges also replace the settings file, add authors / series / tags / categories that are missing,
 //! and add plugin files. Merging never deletes anything: a book, cover or plugin that is only
 //! here stays. Plugin files that exist in both are kept (append) or overwritten (override).
 //!
@@ -102,6 +102,7 @@ pub struct ImportReport {
   pub authors_added: usize,
   pub series_added: usize,
   pub tags_added: usize,
+  pub categories_added: usize,
   pub covers_copied: usize,
   pub plugin_files_copied: usize,
 }
