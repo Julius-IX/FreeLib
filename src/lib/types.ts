@@ -90,6 +90,7 @@ export type BookInput = {
   seriesPosition: number | null;
   authorIds: number[];
   tagIds: number[];
+  categoryIds: number[];
 }
 
 export type BookSort = {

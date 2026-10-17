@@ -23,6 +23,9 @@ pub struct BookInput {
   pub author_ids: Vec<i64>,
   /// Replaces the book's whole tag set.
   pub tag_ids: Vec<i64>,
+  /// Replaces the book's whole category set. Categories are never created from here, they have
+  /// to exist already (see `create_category`), so a bogus id is a foreign key error.
+  pub category_ids: Vec<i64>,
 }
 
 /// Wipe and rewrite a book's author links. Run inside the caller's transaction.
@@ -58,6 +61,21 @@ async fn set_book_tags(conn: &mut SqliteConnection, book_id: i64, ids: &[i64]) -
   Ok(())
 }
 
+async fn set_book_categories(conn: &mut SqliteConnection, book_id: i64, ids: &[i64]) -> Res<()> {
+  sqlx::query("DELETE FROM book_category WHERE book_id = ?")
+    .bind(book_id)
+    .execute(&mut *conn)
+    .await?;
+  for id in ids {
+    sqlx::query("INSERT OR IGNORE INTO book_category (book_id, category_id) VALUES (?, ?)")
+      .bind(book_id)
+      .bind(*id)
+      .execute(&mut *conn)
+      .await?;
+  }
+  Ok(())
+}
+
 #[command(db_crud)]
 async fn create_book(pool: State<'_, SqlitePool>, book: BookInput) -> Res<Book> {
   let mut tx = pool.begin().await?;
@@ -78,6 +96,7 @@ async fn create_book(pool: State<'_, SqlitePool>, book: BookInput) -> Res<Book> 
 
   set_book_authors(&mut tx, row.book_id, &book.author_ids).await?;
   set_book_tags(&mut tx, row.book_id, &book.tag_ids).await?;
+  set_book_categories(&mut tx, row.book_id, &book.category_ids).await?;
 
   tx.commit().await?;
   Ok(row)
@@ -178,7 +197,7 @@ async fn update_book_notes(pool: State<'_, SqlitePool>, book_id: i64, notes: Str
   Ok(())
 }
 
-/// Full replacement, authors and tags included. Notes are untouched.
+/// Full replacement, authors, tags and categories included. Notes are untouched.
 #[command(db_crud)]
 async fn update_book(pool: State<'_, SqlitePool>, book_id: i64, book: BookInput) -> Res<Book> {
   let mut tx = pool.begin().await?;
@@ -202,6 +221,7 @@ async fn update_book(pool: State<'_, SqlitePool>, book_id: i64, book: BookInput)
 
   set_book_authors(&mut tx, book_id, &book.author_ids).await?;
   set_book_tags(&mut tx, book_id, &book.tag_ids).await?;
+  set_book_categories(&mut tx, book_id, &book.category_ids).await?;
 
   tx.commit().await?;
   Ok(row)
