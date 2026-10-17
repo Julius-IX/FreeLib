@@ -14,6 +14,21 @@ pub struct CategoryInput {
   pub color: String,
 }
 
+#[command(db)]
+async fn get_all_categories(pool: State<'_, SqlitePool>, book_id: i64) -> Res<Vec<Category>> {
+  Ok(
+    sqlx::query_as::<_, Category>(
+      "SELECT c.* FROM category c
+     JOIN book_category bc ON bc.category_id = c.category_id
+     WHERE bc.book_id = ?
+     ORDER BY c.name COLLATE NOCASE",
+    )
+    .bind(book_id)
+    .fetch_all(pool.inner())
+    .await?,
+  )
+}
+
 #[command(db_crud)]
 async fn create_category(pool: State<'_, SqlitePool>, category: CategoryInput) -> Res<Category> {
   Ok(

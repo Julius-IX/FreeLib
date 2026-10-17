@@ -14,6 +14,7 @@ export const commands = {
   },
   db: {
     filterBooks: (args: { filter: BookFilter; sort?: BookSort | null }) => invoke<Book[]>("db__filter_books", args),
+    getAllCategories: (args: { bookId: number }) => invoke<Category[]>("db__get_all_categories", args),
     seriesExists: (args: { name: string }) => invoke<boolean>("db__series_exists", args),
   },
   db_crud: {
