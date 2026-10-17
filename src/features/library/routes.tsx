@@ -16,6 +16,7 @@ import CardGrid from "./components/CardGrid";
 import BookView from "./screens/BookView";
 import { Book } from "@/lib/types";
 import BookNotes from "./screens/BookNotes";
+import ShelfTabs from "./shelves/ShelfTabs";
 
 function LibraryHomeWrapper() {
   return (
@@ -40,6 +41,7 @@ function LibraryHome() {
   return (
     <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
       <TopBar />
+      <ShelfTabs />
       <CardGrid items={books} onOpen={onBookClick} />
       <FabActionStack
         actions={actions}
