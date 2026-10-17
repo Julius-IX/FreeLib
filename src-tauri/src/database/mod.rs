@@ -24,6 +24,8 @@ pub use error::DbError;
 pub use reading::ReadingInput;
 #[allow(unused_imports)]
 pub use tag::TagInput;
+#[allow(unused_imports)]
+pub use category::CategoryInput;
 
 pub(crate) use error::Res;
 
