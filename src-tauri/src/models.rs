@@ -1,5 +1,3 @@
-//! One struct per table in migrations/0001_initial.sql.
-//!
 //! `FromRow` reads them out of sqlx, `Serialize` sends them over IPC, and
 //! `TsType` emits the matching `export type` into src/lib/types.ts.
 //! Dates are ISO `YYYY-MM-DD` text (SQLite has no real date type).
@@ -67,6 +65,22 @@ pub struct Tag {
 pub struct BookTag {
   pub book_id: i64,
   pub tag_id: i64,
+}
+
+/// `color` is a `#rrggbb` hex string (enforced by a CHECK on the table).
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, TsType)]
+#[serde(rename_all = "camelCase")]
+pub struct Category {
+  pub category_id: i64,
+  pub name: String,
+  pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, TsType)]
+#[serde(rename_all = "camelCase")]
+pub struct BookCategory {
+  pub book_id: i64,
+  pub category_id: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, TsType)]
