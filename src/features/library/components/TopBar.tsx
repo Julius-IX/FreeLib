@@ -24,6 +24,7 @@ export default function TopBar() {
       width: "100%",
       gap: 2,
       paddingBottom: 1,
+      marginBottom: 1,
       borderBottom: 1,
       borderColor: "divider",
     }}>
