@@ -7,7 +7,7 @@ import { today } from "./format";
 import type { BookDetails } from "./types";
 
 /** What the edit form is prefilled with. `cover` is the saved cover's local path, if any. */
-export function toDraft({ book, authors, tags, series }: BookDetails, cover: string | null): BookDraft {
+export function toDraft({ book, authors, tags, categories, series }: BookDetails, cover: string | null): BookDraft {
   return {
     title: book.title,
     isbn: book.isbn,
@@ -16,6 +16,7 @@ export function toDraft({ book, authors, tags, series }: BookDetails, cover: str
     pageCount: book.pageCount,
     authors: authors.map((a) => ({ id: a.authorId, name: a.name })),
     tags: tags.map((t) => ({ id: t.tagId, name: t.name })),
+    categories,
     series: series ? { id: series.seriesId, name: series.name } : null,
     seriesPosition: book.seriesPosition,
     cover,

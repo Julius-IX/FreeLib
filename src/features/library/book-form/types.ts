@@ -1,4 +1,4 @@
-import type { BookInput } from "@/lib/types";
+import type { BookInput, Category } from "@/lib/types";
 
 /**
  * An author / tag / series the user picked. `id: null` means it doesn't exist yet:
@@ -22,10 +22,12 @@ export type BookDraft = {
   pageCount?: number | null;
   authors?: DraftRef[];
   tags?: DraftRef[];
+  /** Existing categories only: they cannot be created from the book form. */
+  categories?: Category[];
   series?: DraftRef | null;
   seriesPosition?: number | null;
   cover?: string | null; // link or local file path
 };
 
 /** What the form edits directly. Authors, tags, series and the date have their own state. */
-export type BookFields = Omit<BookInput, "authorIds" | "tagIds" | "seriesId" | "publishDate">;
+export type BookFields = Omit<BookInput, "authorIds" | "tagIds" | "categoryIds" | "seriesId" | "publishDate">;

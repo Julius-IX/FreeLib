@@ -5,7 +5,7 @@ import { useLibraryRevision } from "../libraryEvents";
 import type { BookViewState } from "./types";
 
 /**
- * Loads a book with its authors, tags, series and readings. Re-runs when a book was saved
+ * Loads a book with its authors, tags, categories, series and readings. Re-runs when a book was saved
  * elsewhere (the edit screen) or when `reload()` is called (after start / end read).
  * If a refresh fails after a successful load (e.g. the book was just deleted) the data
  * on screen is kept. A first load that fails ends in `missing` and tells the user why.
@@ -38,16 +38,17 @@ export function useBookDetails(param: string | undefined) {
     }
 
     (async () => {
-      const [book, authors, tags, readings] = await Promise.all([
+      const [book, authors, tags, categories, readings] = await Promise.all([
         commands.db_crud.getBook({ bookId: id }),
         commands.db_crud.getBookAuthors({ bookId: id }),
         commands.db_crud.getBookTags({ bookId: id }),
+        commands.db.getAllCategories({ bookId: id }),
         commands.db_crud.listReadings({ bookId: id }),
       ]);
       const series = book.seriesId !== null ? await commands.db_crud.getSeries({ seriesId: book.seriesId }) : null;
       if (stale) return;
       loadedFor.current = id;
-      setState({ status: "ready", details: { book, authors, tags, series }, readings });
+      setState({ status: "ready", details: { book, authors, tags, categories, series }, readings });
     })().catch((e) => {
       console.error(`useBookDetails: couldn't load book ${id}`, e);
       fail("This book doesn't exist anymore, or couldn't be loaded.", `Couldn't open this book: ${String(e)}`);

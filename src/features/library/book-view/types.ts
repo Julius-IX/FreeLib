@@ -1,6 +1,6 @@
-import type { Author, Book, Reading, Series, Tag } from "@/lib/types";
+import type { Author, Book, Category, Reading, Series, Tag } from "@/lib/types";
 
-export type BookDetails = { book: Book; authors: Author[]; tags: Tag[]; series: Series | null };
+export type BookDetails = { book: Book; authors: Author[]; tags: Tag[]; categories: Category[]; series: Series | null };
 
 export type BookViewState =
   | { status: "loading" }
