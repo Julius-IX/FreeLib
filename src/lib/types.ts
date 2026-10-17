@@ -29,6 +29,11 @@ export type BookAuthor = {
   authorId: number;
 }
 
+export type BookCategory = {
+  bookId: number;
+  categoryId: number;
+}
+
 export type BookFilter = {
   text: string | null;
   title: string | null;
@@ -37,11 +42,18 @@ export type BookFilter = {
   author: string | null;
   tag: string | null;
   series: string | null;
+  category: string | null;
+  color: string | null;
   seriesId: number | null;
   authorIdsAny: number[];
   tagIdsAny: number[];
   tagIdsAll: number[];
   tagIdsNone: number[];
+  categoryIdsAny: number[];
+  categoryIdsAll: number[];
+  categoryIdsNone: number[];
+  shelfIdsAny: number[];
+  shelfIdsNone: number[];
   publishFrom: string | null;
   publishTo: string | null;
   pageCountMin: number | null;
@@ -80,11 +92,33 @@ export type BookInput = {
   seriesPosition: number | null;
   authorIds: number[];
   tagIds: number[];
+  categoryIds: number[];
+}
+
+export type BookShelf = {
+  bookId: number;
+  shelfId: number;
+}
+
+export type BookSort = {
+  by: SortKey;
+  dir: SortDir;
 }
 
 export type BookTag = {
   bookId: number;
   tagId: number;
+}
+
+export type Category = {
+  categoryId: number;
+  name: string;
+  color: string;
+}
+
+export type CategoryInput = {
+  name: string;
+  color: string;
 }
 
 export type CreatedBackup = {
@@ -95,6 +129,8 @@ export type CreatedBackup = {
   plugins: number;
 }
 
+export type CssColor = "aliceblue" | "antiquewhite" | "aqua" | "aquamarine" | "azure" | "beige" | "bisque" | "black" | "blanchedalmond" | "blue" | "blueviolet" | "brown" | "burlywood" | "cadetblue" | "chartreuse" | "chocolate" | "coral" | "cornflowerblue" | "cornsilk" | "crimson" | "cyan" | "darkblue" | "darkcyan" | "darkgoldenrod" | "darkgray" | "darkgrey" | "darkgreen" | "darkkhaki" | "darkmagenta" | "darkolivegreen" | "darkorange" | "darkorchid" | "darkred" | "darksalmon" | "darkseagreen" | "darkslateblue" | "darkslategray" | "darkslategrey" | "darkturquoise" | "darkviolet" | "deeppink" | "deepskyblue" | "dimgray" | "dimgrey" | "dodgerblue" | "firebrick" | "floralwhite" | "forestgreen" | "fuchsia" | "gainsboro" | "ghostwhite" | "gold" | "goldenrod" | "gray" | "grey" | "green" | "greenyellow" | "honeydew" | "hotpink" | "indianred" | "indigo" | "ivory" | "khaki" | "lavender" | "lavenderblush" | "lawngreen" | "lemonchiffon" | "lightblue" | "lightcoral" | "lightcyan" | "lightgoldenrodyellow" | "lightgray" | "lightgrey" | "lightgreen" | "lightpink" | "lightsalmon" | "lightseagreen" | "lightskyblue" | "lightslategray" | "lightslategrey" | "lightsteelblue" | "lightyellow" | "lime" | "limegreen" | "linen" | "magenta" | "maroon" | "mediumaquamarine" | "mediumblue" | "mediumorchid" | "mediumpurple" | "mediumseagreen" | "mediumslateblue" | "mediumspringgreen" | "mediumturquoise" | "mediumvioletred" | "midnightblue" | "mintcream" | "mistyrose" | "moccasin" | "navajowhite" | "navy" | "oldlace" | "olive" | "olivedrab" | "orange" | "orangered" | "orchid" | "palegoldenrod" | "palegreen" | "paleturquoise" | "palevioletred" | "papayawhip" | "peachpuff" | "peru" | "pink" | "plum" | "powderblue" | "purple" | "rebeccapurple" | "red" | "rosybrown" | "royalblue" | "saddlebrown" | "salmon" | "sandybrown" | "seagreen" | "seashell" | "sienna" | "silver" | "skyblue" | "slateblue" | "slategray" | "slategrey" | "snow" | "springgreen" | "steelblue" | "tan" | "teal" | "thistle" | "tomato" | "turquoise" | "violet" | "wheat" | "white" | "whitesmoke" | "yellow" | "yellowgreen";
+
 export type ImportMode = "fullReplace" | "appendMerge" | "overrideMerge";
 
 export type ImportReport = {
@@ -104,8 +140,11 @@ export type ImportReport = {
   authorsAdded: number;
   seriesAdded: number;
   tagsAdded: number;
+  categoriesAdded: number;
+  shelvesAdded: number;
   coversCopied: number;
   pluginFilesCopied: number;
+  warnings: string[];
 }
 
 export type InvalidField = {
@@ -167,6 +206,16 @@ export type Series = {
   seriesId: number;
   name: string;
 }
+
+export type Shelf = {
+  shelfId: number;
+  name: string;
+  position: number;
+}
+
+export type SortDir = "asc" | "desc";
+
+export type SortKey = "title" | "author" | "series" | "category" | "added" | "published" | "pages" | "lastRead" | "timesRead";
 
 export type Tag = {
   tagId: number;

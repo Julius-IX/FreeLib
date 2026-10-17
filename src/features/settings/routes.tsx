@@ -11,6 +11,9 @@ import { useX11OnWayland } from "./linuxSettings";
 import { BackupSettings } from "./components/BackupSettings";
 import { UpdateSettings } from "./components/UpdateSettings";
 import { DebugSettings } from "./components/DebugSettings";
+import { CategoryStylePicker } from "./components/CategoryStylePicker";
+import { ShelvesSettings } from "./components/ShelvesSettings";
+import { CATEGORY_STYLES, useCategoryStyle } from "@/features/library/categoryStyle";
 import {
   Preference, Section, SelectPreference, SliderPreference, SwitchPreference,
 } from "./components/Preferences";
@@ -45,6 +48,7 @@ function SettingsHome() {
   const [columns, saveColumns] = useLibraryColumns();
   const { min, max } = libraryColumnsRange();
   const [x11OnWayland, setX11OnWayland] = useX11OnWayland();
+  const [categoryStyle] = useCategoryStyle();
 
   return (
     <Box sx={{ maxWidth: 720, mx: "auto", pb: 2 }}>
@@ -57,7 +61,7 @@ function SettingsHome() {
           <ThemeSwatches />
         </Preference>
         <SelectPreference
-          title="Dark mode"
+          title="Theme mode"
           value={mode}
           onChange={setMode}
           options={[
@@ -77,7 +81,15 @@ function SettingsHome() {
           max={max}
           onCommit={saveColumns}
         />
+        <Preference
+          title="Category tag style"
+          summary={CATEGORY_STYLES.find((s) => s.value === categoryStyle)?.label}
+        >
+          <CategoryStylePicker />
+        </Preference>
       </Section>
+
+      <ShelvesSettings />
 
       {isLinux() && (
         <Section title="Linux">

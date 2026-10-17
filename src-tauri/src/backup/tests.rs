@@ -77,6 +77,44 @@ async fn add_book(pool: &SqlitePool, title: &str, isbn: Option<&str>, author: &s
     .unwrap();
 }
 
+async fn add_category(pool: &SqlitePool, isbn: &str, name: &str, color: &str) {
+  let category_id: i64 = match sqlx::query_scalar("SELECT category_id FROM category WHERE name = ?")
+    .bind(name)
+    .fetch_optional(pool)
+    .await
+    .unwrap()
+  {
+    Some(id) => id,
+    None => sqlx::query_scalar("INSERT INTO category (name, color) VALUES (?, ?) RETURNING category_id")
+      .bind(name)
+      .bind(color)
+      .fetch_one(pool)
+      .await
+      .unwrap(),
+  };
+  sqlx::query(
+    "INSERT INTO book_category (book_id, category_id)
+     SELECT book_id, ? FROM book WHERE isbn = ?",
+  )
+  .bind(category_id)
+  .bind(isbn)
+  .execute(pool)
+  .await
+  .unwrap();
+}
+
+async fn categories_of(pool: &SqlitePool, isbn: &str) -> Vec<(String, String)> {
+  sqlx::query_as(
+    "SELECT c.name, c.color FROM category c
+     JOIN book_category bc USING (category_id) JOIN book b USING (book_id)
+     WHERE b.isbn = ? ORDER BY c.name",
+  )
+  .bind(isbn)
+  .fetch_all(pool)
+  .await
+  .unwrap()
+}
+
 /// Host has Dune ("host version") and Emma. The backup has Dune ("backup version") and
 /// Ulysses.
 async fn scenario() -> (SqlitePool, BackupData) {
@@ -91,6 +129,8 @@ async fn scenario() -> (SqlitePool, BackupData) {
   )
   .await;
   add_book(&host, "Emma", Some("9780141439587"), "Jane Austen", "").await;
+  add_category(&host, "9780441013593", "Fiction", "#ff0000").await;
+  add_category(&host, "9780141439587", "Romance", "#ff00ff").await;
 
   let other = migrated_pool(&dir.join("backup.sqlite")).await;
   add_book(
@@ -102,6 +142,9 @@ async fn scenario() -> (SqlitePool, BackupData) {
   )
   .await;
   add_book(&other, "Ulysses", Some("9780199535675"), "James Joyce", "").await;
+  add_category(&other, "978-0-441-01359-3", "fiction", "#0000ff").await;
+  add_category(&other, "978-0-441-01359-3", "Sci-Fi", "#00ff00").await;
+  add_category(&other, "9780199535675", "Classics", "#123456").await;
   other.close().await;
 
   let data = read_backup_db(&dir.join("backup.sqlite")).await.unwrap();
@@ -195,6 +238,69 @@ fn full_replace_leaves_exactly_the_backup() {
       .await
       .unwrap();
     assert_eq!(types, 3);
+  });
+}
+
+#[test]
+fn append_merge_adds_missing_categories_and_leaves_existing_books_alone() {
+  tauri::async_runtime::block_on(async {
+    let (host, data) = scenario().await;
+    let mut report = ImportReport::default();
+    merge_db(&host, &data, false, &mut report).await.unwrap();
+
+    // "fiction" is the host's "Fiction": matched by name, color kept; Sci-Fi and Classics are new
+    assert_eq!(report.categories_added, 2);
+    // the existing Dune keeps exactly its own categories
+    assert_eq!(
+      categories_of(&host, "9780441013593").await,
+      [("Fiction".to_string(), "#ff0000".to_string())]
+    );
+    // the new book arrives with its category
+    assert_eq!(
+      categories_of(&host, "9780199535675").await,
+      [("Classics".to_string(), "#123456".to_string())]
+    );
+  });
+}
+
+#[test]
+fn override_merge_replaces_categories_of_existing_books() {
+  tauri::async_runtime::block_on(async {
+    let (host, data) = scenario().await;
+    let mut report = ImportReport::default();
+    merge_db(&host, &data, true, &mut report).await.unwrap();
+
+    // matched category takes the backup's color; Dune now has the backup's two categories
+    assert_eq!(
+      categories_of(&host, "9780441013593").await,
+      [
+        ("Fiction".to_string(), "#0000ff".to_string()),
+        ("Sci-Fi".to_string(), "#00ff00".to_string()),
+      ]
+    );
+    // Emma was only here: untouched
+    assert_eq!(
+      categories_of(&host, "9780141439587").await,
+      [("Romance".to_string(), "#ff00ff".to_string())]
+    );
+  });
+}
+
+#[test]
+fn full_replace_restores_categories_exactly() {
+  tauri::async_runtime::block_on(async {
+    let (host, data) = scenario().await;
+    let mut report = ImportReport::default();
+    replace_db(&host, &data, &mut report).await.unwrap();
+
+    assert_eq!(report.categories_added, 3);
+    let names: Vec<String> = sqlx::query_scalar("SELECT name FROM category ORDER BY name")
+      .fetch_all(&host)
+      .await
+      .unwrap();
+    assert_eq!(names, ["Classics", "Sci-Fi", "fiction"]); // the host's Romance is gone
+    assert_eq!(categories_of(&host, "978-0-441-01359-3").await.len(), 2);
+    assert_eq!(categories_of(&host, "9780199535675").await.len(), 1);
   });
 }
 

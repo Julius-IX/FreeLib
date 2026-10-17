@@ -1,6 +1,8 @@
 import { Autocomplete, Chip, CircularProgress, TextField } from "@mui/material";
+import type { ChipProps } from "@mui/material";
+import type { ReactNode } from "react";
 import CancelIcon from "@mui/icons-material/Cancel"; // round X
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 
 export type TagFieldProps<T> = {
   label?: string;
@@ -33,6 +35,14 @@ export type TagFieldProps<T> = {
   /** No X button; clicking a chip removes it (takes priority over onChipClick). */
   removeOnClick?: boolean;
   confirmOnSpace?: boolean; // space commits typed text (default true, needs free text)
+
+  /** Draw a chip manually (e.g. a coloured one). Spread `chipProps` onto it: it carries the
+   *  remove / click handlers, the hover-X styling and what the Autocomplete needs. */
+  renderChip?: (item: T, chipProps: ChipProps) => ReactNode;
+  /** Draw a row of the suggestion list yourself. */
+  renderOption?: (item: T) => ReactNode;
+  helperText?: string;
+  noOptionsText?: string;
 };
 
 export function TagField<T>({
@@ -51,6 +61,10 @@ export function TagField<T>({
   removeOnHover = true,
   removeOnClick = false,
   confirmOnSpace = true,
+  renderChip,
+  renderOption,
+  helperText,
+  noOptionsText,
 }: TagFieldProps<T>) {
   const [input, setInput] = useState("");
 
@@ -114,6 +128,19 @@ export function TagField<T>({
         setInput(v);
         if (reason === "input") onSearch?.(v);
       }}
+      noOptionsText={noOptionsText}
+      renderOption={
+        renderOption
+          ? (props, option) => {
+            const { key, ...rest } = props;
+            return (
+              <li key={key} {...rest}>
+                {renderOption(option as T)}
+              </li>
+            );
+          }
+          : undefined
+      }
       getOptionLabel={labelOf}
       isOptionEqualToValue={(a, b) =>
         (typeof a === "string" ? a : keyOf(a)) ===
@@ -123,38 +150,34 @@ export function TagField<T>({
         (vals as T[]).map((item, index) => {
           // drop MUI's onDelete so removal goes through our own callback
           const { key, onDelete: _ignored, ...itemProps } = getItemProps({ index });
-          return (
-            <Chip
-              key={key}
-              label={getLabel(item)}
-              {...itemProps}
-              onClick={
-                removeOnClick
-                  ? () => removeItem(item)
-                  : onChipClick
-                    ? () => onChipClick(item)
-                    : undefined
-              }
-              onDelete={removeOnClick ? undefined : () => removeItem(item)}
-              deleteIcon={<CancelIcon />}
-              sx={
-                removeOnHover && !removeOnClick
-                  ? {
-                    "& .MuiChip-deleteIcon": { opacity: 0, transition: "opacity .15s" },
-                    "&:hover .MuiChip-deleteIcon": { opacity: 1 },
-                    // no hover on touch devices, so always show it there
-                    "@media (hover: none)": { "& .MuiChip-deleteIcon": { opacity: 1 } },
-                  }
-                  : undefined
-              }
-            />
-          );
+          const chipPropsFull: ChipProps = {
+            ...itemProps,
+            onClick: removeOnClick
+              ? () => removeItem(item)
+              : onChipClick
+                ? () => onChipClick(item)
+                : undefined,
+            onDelete: removeOnClick ? undefined : () => removeItem(item),
+            deleteIcon: <CancelIcon />,
+            sx:
+              removeOnHover && !removeOnClick
+                ? {
+                  "& .MuiChip-deleteIcon": { opacity: 0, transition: "opacity .15s" },
+                  "&:hover .MuiChip-deleteIcon": { opacity: 1 },
+                  // no hover on touch devices, so always show it there
+                  "@media (hover: none)": { "& .MuiChip-deleteIcon": { opacity: 1 } },
+                }
+                : undefined,
+          };
+          if (renderChip) return <Fragment key={key}>{renderChip(item, chipPropsFull)}</Fragment>;
+          return <Chip key={key} label={getLabel(item)} {...chipPropsFull} />;
         })
       }
       renderInput={(params) => (
         <TextField
           {...params}
           label={label}
+          helperText={helperText}
           slotProps={{
             ...params.slotProps, // keeps htmlInput (ref, aria props, etc.)
             input: {

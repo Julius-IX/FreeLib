@@ -9,9 +9,9 @@ A book reading and collection tracker.
 Add a book by scanning its barcode and the details are filled in automatically, as far as the plugins can find them. Anything they miss you fill in by hand.
 
 - Reading status and history per book
-- Authors, tags and series
+- Authors, tags, series, categories, and shelves
 - Notes per book
-- Search and filters
+- Search, filters, and sorting 
 - Covers stored locally
 - Backup and restore
 - Light and dark themes

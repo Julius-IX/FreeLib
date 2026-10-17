@@ -15,6 +15,7 @@ import { isOpen, sortReadings } from "../book-view/format";
 import { MobileLayout } from "../book-view/MobileLayout";
 import { useBookCover } from "../book-view/useBookCover";
 import { useBookDetails } from "../book-view/useBookDetails";
+import { ShelfButton } from "../shelves/ShelfButton";
 import type { NewBookState } from "./NewBook";
 
 export default function BookView() {
@@ -33,7 +34,11 @@ export default function BookView() {
   const [busy, setBusy] = useState(false);
 
   const bar = (
-    <BookViewBar onBack={() => navigate(-1)} onMenu={details ? (e) => setMenuAnchor(e.currentTarget) : undefined} />
+    <BookViewBar
+      onBack={() => navigate(-1)}
+      onMenu={details ? (e) => setMenuAnchor(e.currentTarget) : undefined}
+      actions={details ? <ShelfButton bookId={details.book.bookId} /> : undefined}
+    />
   );
 
   if (!details) {

@@ -1,4 +1,5 @@
 mod backup;
+mod colors;
 mod covers;
 mod database;
 mod filter;

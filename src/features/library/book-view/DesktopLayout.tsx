@@ -4,6 +4,7 @@ import { Blurb } from "./Blurb";
 import { BookCoverImage } from "./BookCoverImage";
 import { BookInfo } from "./BookInfo";
 import { ReadingHistory } from "./ReadingHistory";
+import { CategoryRow } from "./CategoryRow";
 import { TagRow } from "./TagRow";
 import type { BookDetails } from "./types";
 
@@ -19,7 +20,7 @@ export function DesktopLayout({
   readings: Reading[];
   coverUrl: string;
 }) {
-  const { book, tags } = details;
+  const { book, tags, categories } = details;
   return (
     <Box
       sx={{
@@ -35,6 +36,7 @@ export function DesktopLayout({
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, minWidth: 0 }}>
         <BookInfo details={details} large />
         {book.blurb && <Blurb text={book.blurb} />}
+        <CategoryRow categories={categories} wrap />
         <TagRow tags={tags} wrap />
         <ReadingHistory readings={readings} />
       </Box>

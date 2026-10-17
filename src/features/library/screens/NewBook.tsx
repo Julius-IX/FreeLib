@@ -6,9 +6,10 @@ import { useEffect, useState } from "react";
 import { isMobile } from "@/util/misc";
 import { withTimeout } from "@/util/async";
 import { commands } from "@/lib/commands";
-import type { Book, BookInput } from "@/lib/types";
+import type { Book, BookInput, Category } from "@/lib/types";
 import { notify } from "@/notifications/notify";
 import { COVER_SEGMENT, CoverPreviewCard, type CoverCtx } from "./CoverPreview";
+import { CategoryField } from "../book-form/CategoryField";
 import { ChoicesField, loadAuthors, loadTags } from "../book-form/ChoicesField";
 import { CoverField } from "../book-form/CoverField";
 import { DateField } from "../book-form/DateField";
@@ -46,6 +47,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   }));
   const [authors, setAuthors] = useState<Choice[]>(() => toChoices(seed.authors));
   const [tags, setTags] = useState<Choice[]>(() => toChoices(seed.tags));
+  const [categories, setCategories] = useState<Category[]>(() => seed.categories ?? []);
   const [series, setSeries] = useState<Choice | null>(() => (seed.series ? toChoice(seed.series) : null));
   const [cover, setCover] = useState(seed.cover ?? ""); // link or local path
   const [initialCover] = useState(() => (seed.cover ?? "").trim()); // when editing: the cover already on disk
@@ -139,6 +141,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         seriesPosition: savedSeries ? fields.seriesPosition : null,
         authorIds: savedAuthors.map((a) => a.id),
         tagIds: savedTags.map((t) => t.id),
+        categoryIds: categories.map((c) => c.categoryId),
       };
       const byIsbn = await findBookByIsbn(isbn);
       let target = byIsbn;
@@ -249,6 +252,8 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
       </Box>
 
       <ChoicesField label="Tags" load={loadTags} value={tags} onChange={setTags} removeOnClick normalize={normTag} />
+
+      <CategoryField value={categories} onChange={setCategories} />
 
       <Box sx={{ display: "flex", gap: 2 }}>
         <TextField

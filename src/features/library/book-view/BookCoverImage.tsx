@@ -9,7 +9,7 @@ export function BookCoverImage({ url, title, sx }: { url: string; title: string;
       alt={title}
       decoding="sync"
       sx={[
-        { display: "block", aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 2, boxShadow: 3, bgcolor: "action.hover" },
+        { display: "block", aspectRatio: "2 / 3", objectFit: "cover", borderRadius: 0.5, boxShadow: 3, bgcolor: "action.hover" },
         ...(Array.isArray(sx) ? sx : [sx]),
       ]}
     />
