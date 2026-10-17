@@ -3,6 +3,7 @@ use sqlx::{QueryBuilder, Sqlite, SqlitePool};
 use tauri::State;
 use tauri_groups::{TsType, command};
 
+use crate::colors::CssColor;
 use crate::database::Res;
 use crate::models::Book;
 
@@ -21,11 +22,20 @@ pub enum ReadStatus {
 /// list) and means "don't filter on this"; all the ones you set are ANDed.
 ///
 /// **Substring** (case-insensitive, ASCII only)
-/// - `text`: title OR blurb OR notes OR isbn OR any author name OR any tag name OR series name
+/// - `text`: title OR blurb OR notes OR isbn OR any author name OR any tag name OR any category
+///   name OR series name. A `text` that is only a `#` hex colour (`#ff0000`) also matches books
+///   with a category of that colour.
 /// - `title`, `blurb`, `notes`: that field only
 /// - `author`: any of the book's authors
 /// - `tag`: any of the book's tags
 /// - `series`: the series name
+/// - `category`: any of the book's categories
+///
+/// **Colour**
+/// - `color`: a CSS colour name (`red`, `DarkSeaGreen`, see [`CssColor`], any case) or a hex colour
+///   (`#ff0000`, `ff0000` or `#f00`, any case) that one of the book's categories has, exactly.
+///   Anything that is neither a CSS colour name nor a 3 or 6 digit hex colour is ignored, like a
+///   half-typed date. If `category` is set too, a single category must match both.
 ///
 /// **Ids**
 /// - `series_id`: exact series
@@ -33,6 +43,7 @@ pub enum ReadStatus {
 /// - `tag_ids_any`: has at least one of these tags
 /// - `tag_ids_all`: has every one of these tags
 /// - `tag_ids_none`: has none of these tags
+/// - `category_ids_any` / `category_ids_all` / `category_ids_none`: the same three, for categories
 ///
 /// **Book**
 /// - `publish_from` / `publish_to`: publish date range
@@ -73,12 +84,17 @@ pub struct BookFilter {
   pub author: Option<String>,
   pub tag: Option<String>,
   pub series: Option<String>,
+  pub category: Option<String>,
+  pub color: Option<String>,
 
   pub series_id: Option<i64>,
   pub author_ids_any: Vec<i64>,
   pub tag_ids_any: Vec<i64>,
   pub tag_ids_all: Vec<i64>,
   pub tag_ids_none: Vec<i64>,
+  pub category_ids_any: Vec<i64>,
+  pub category_ids_all: Vec<i64>,
+  pub category_ids_none: Vec<i64>,
 
   pub publish_from: Option<String>,
   pub publish_to: Option<String>,
@@ -104,6 +120,8 @@ const AUTHOR_EXISTS: &str = "EXISTS (SELECT 1 FROM book_author ba \
   JOIN author a ON a.author_id = ba.author_id WHERE ba.book_id = b.book_id";
 const TAG_EXISTS: &str = "EXISTS (SELECT 1 FROM book_tag bt \
   JOIN tag t ON t.tag_id = bt.tag_id WHERE bt.book_id = b.book_id";
+const CATEGORY_EXISTS: &str = "EXISTS (SELECT 1 FROM book_category bc \
+  JOIN category c ON c.category_id = bc.category_id WHERE bc.book_id = b.book_id";
 
 /// `%needle%` with LIKE wildcards in the needle escaped.
 fn like(s: &str) -> String {
@@ -126,6 +144,33 @@ fn push_in(qb: &mut QueryBuilder<'_, Sqlite>, ids: &[i64]) {
     sep.push_bind(*id);
   }
   sep.push_unseparated(")");
+}
+
+/// A CSS colour name or a hex colour -> `#rrggbb`. `None` for anything else. (No CSS name is
+/// all hex digits, so the two forms can't clash.)
+fn norm_color(raw: &str) -> Option<String> {
+  CssColor::from_name(raw)
+    .map(CssColor::hex)
+    .or_else(|| norm_hex(raw))
+}
+
+/// `#FF0000`, `ff0000` and `#f00` -> `#ff0000`, the form the category table stores (lower-cased on
+/// compare). `None` for anything that isn't a 3 or 6 digit hex colour.
+fn norm_hex(raw: &str) -> Option<String> {
+  let s = raw.trim();
+  let h = s.strip_prefix('#').unwrap_or(s);
+  if !h.bytes().all(|b| b.is_ascii_hexdigit()) {
+    return None;
+  }
+  let h = h.to_ascii_lowercase();
+  match h.len() {
+    6 => Some(format!("#{h}")),
+    3 => Some(format!(
+      "#{}",
+      h.chars().flat_map(|c| [c, c]).collect::<String>()
+    )),
+    _ => None,
+  }
 }
 
 fn sorted_unique(ids: &[i64]) -> Vec<i64> {
@@ -395,6 +440,19 @@ async fn filter_books(pool: State<'_, SqlitePool>, filter: BookFilter) -> Res<Ve
       .push_bind(p.clone())
       .push(ESC)
       .push(")");
+    qb.push(format!(" OR {CATEGORY_EXISTS} AND c.name LIKE "))
+      .push_bind(p.clone())
+      .push(ESC)
+      .push(")");
+    // `#ff0000` on its own also finds books in a category of that colour. Only with the `#`:
+    // plain words like "bad" or "face" are valid 3 digit hex too.
+    if t.starts_with('#') {
+      if let Some(hex) = norm_hex(t) {
+        qb.push(format!(" OR {CATEGORY_EXISTS} AND LOWER(c.color) = "))
+          .push_bind(hex)
+          .push(")");
+      }
+    }
     qb.push(" OR EXISTS (SELECT 1 FROM series s WHERE s.series_id = b.series_id AND s.name LIKE ")
       .push_bind(p)
       .push(ESC)
@@ -430,6 +488,20 @@ async fn filter_books(pool: State<'_, SqlitePool>, filter: BookFilter) -> Res<Ve
     qb.push(")");
   }
 
+  // category name + colour: ONE category has to satisfy both
+  let color = f.color.as_deref().and_then(norm_color);
+  let category = f.category.as_deref().filter(|t| !t.is_empty());
+  if category.is_some() || color.is_some() {
+    qb.push(format!(" AND {CATEGORY_EXISTS}"));
+    if let Some(name) = category {
+      push_like(&mut qb, " AND c.name LIKE ", name);
+    }
+    if let Some(hex) = color {
+      qb.push(" AND LOWER(c.color) = ").push_bind(hex);
+    }
+    qb.push(")");
+  }
+
   // ids
   if let Some(id) = f.series_id {
     qb.push(" AND b.series_id = ").push_bind(id);
@@ -459,6 +531,29 @@ async fn filter_books(pool: State<'_, SqlitePool>, filter: BookFilter) -> Res<Ve
        WHERE bt.book_id = b.book_id AND bt.tag_id IN ",
     );
     push_in(&mut qb, &f.tag_ids_none);
+    qb.push(")");
+  }
+
+  if !f.category_ids_any.is_empty() {
+    qb.push(format!(" AND {CATEGORY_EXISTS} AND bc.category_id IN "));
+    push_in(&mut qb, &f.category_ids_any);
+    qb.push(")");
+  }
+  if !f.category_ids_all.is_empty() {
+    let ids = sorted_unique(&f.category_ids_all);
+    qb.push(
+      " AND (SELECT COUNT(DISTINCT bc.category_id) FROM book_category bc \
+       WHERE bc.book_id = b.book_id AND bc.category_id IN ",
+    );
+    push_in(&mut qb, &ids);
+    qb.push(") = ").push_bind(ids.len() as i64);
+  }
+  if !f.category_ids_none.is_empty() {
+    qb.push(
+      " AND NOT EXISTS (SELECT 1 FROM book_category bc \
+       WHERE bc.book_id = b.book_id AND bc.category_id IN ",
+    );
+    push_in(&mut qb, &f.category_ids_none);
     qb.push(")");
   }
 
@@ -633,6 +728,32 @@ mod tests {
     assert_eq!((b.from, b.to.as_deref()), (None, Some("2000-12-31")));
     assert!(date_bound(&s("19"), &s("x")).is_empty());
     assert!(date_bound(&None, &None).is_empty());
+  }
+
+  #[test]
+  fn hex_colours() {
+    for s in ["#FF0000", "ff0000", " #ff0000 ", "#Ff0000"] {
+      assert_eq!(norm_hex(s).as_deref(), Some("#ff0000"), "{s}");
+    }
+    assert_eq!(norm_hex("#f0A").as_deref(), Some("#ff00aa"));
+    assert_eq!(norm_hex("abc").as_deref(), Some("#aabbcc"));
+    for s in [
+      "", "#", "#ff00", "#ff00000", "#gg0000", "##ff0000", "red", "#ff 000",
+    ] {
+      assert_eq!(norm_hex(s), None, "{s}");
+    }
+  }
+
+  #[test]
+  fn colour_names() {
+    for s in ["red", "Red", " RED ", "#ff0000", "ff0000", "#f00"] {
+      assert_eq!(norm_color(s).as_deref(), Some("#ff0000"), "{s}");
+    }
+    assert_eq!(norm_color("DarkSeaGreen").as_deref(), Some("#8fbc8f"));
+    assert_eq!(norm_color("rebeccapurple").as_deref(), Some("#663399"));
+    for s in ["", "reddish", "#red", "grn"] {
+      assert_eq!(norm_color(s), None, "{s}");
+    }
   }
 
   #[test]

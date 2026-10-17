@@ -11,11 +11,16 @@ export function emptyFilter(): BookFilter {
     author: null,
     tag: null,
     series: null,
+    category: null,
+    color: null,
     seriesId: null,
     authorIdsAny: [],
     tagIdsAny: [],
     tagIdsAll: [],
     tagIdsNone: [],
+    categoryIdsAny: [],
+    categoryIdsAll: [],
+    categoryIdsNone: [],
     publishFrom: null,
     publishTo: null,
     pageCountMin: null,
@@ -130,12 +135,16 @@ const idList =
 
 // Keys are letters only (see KEY below). Add a searchable key = one `add` line.
 //
-//   text      title:  blurb:  notes:  author:  tag:  series:     substring, quote for spaces
+//   text      title:  blurb:  notes:  author:  tag:  series:  category: (alias cat:)   substring, quote for spaces
+//   colour    color: (aliases colour:, hex:)   red | DarkSeaGreen (any CSS colour name) | #ff0000 | ff0000 | #f00
+//             a category with exactly this colour
+//             category: and color: together must match the SAME category. A lone #ff0000 works as plain text too.
 //   status    status:unread | reading | finished
 //   dates     published: (alias pub:, year:)   born:   died:   started:   finished:
 //             2024 | 2024-03 | 2024-03-07 | "March 2024" | 1990..2000 | 1990.. | ..2000 | >=1990 | <=2000
 //   pages     pages: (alias pagecount:)   300 | >300 | >=300 | <300 | <=300 | 100..300 | 300.. | ..300
 //   ids       seriesid:3   authorid:1,2 (any)   tagid:4,5 (any)   tagall:4,5 (every)   tagnone:4,5 (none)
+//             categoryid:1,2 (any)   categoryall:1,2 (every)   categorynone:1,2 (none)
 
 const FIELDS = new Map<string, Setter>();
 const add = (keys: string[], setter: Setter) => keys.forEach((k) => FIELDS.set(k, setter));
@@ -146,6 +155,10 @@ add(["notes", "note"], (f, v) => { f.notes = v; });
 add(["author"], (f, v) => { f.author = v; });
 add(["tag"], (f, v) => { f.tag = normTag(v); });
 add(["series"], (f, v) => { f.series = v; });
+add(["category", "cat"], (f, v) => { f.category = v; });
+// sent as typed: the backend resolves CSS colour names (red) and normalises #FF0000 / ff0000 / #f00,
+// and ignores anything else (half-typed values)
+add(["color", "colour", "hex"], (f, v) => { f.color = v; });
 add(["status"], (f, v) => {
   f.readStatus = STATUS[v.toLowerCase().replace(/[^a-z]/g, "")] ?? null;
 });
@@ -166,6 +179,9 @@ add(["authorid"], idList((f, ids) => { f.authorIdsAny = ids; }));
 add(["tagid"], idList((f, ids) => { f.tagIdsAny = ids; }));
 add(["tagall"], idList((f, ids) => { f.tagIdsAll = ids; }));
 add(["tagnone"], idList((f, ids) => { f.tagIdsNone = ids; }));
+add(["categoryid"], idList((f, ids) => { f.categoryIdsAny = ids; }));
+add(["categoryall"], idList((f, ids) => { f.categoryIdsAll = ids; }));
+add(["categorynone"], idList((f, ids) => { f.categoryIdsNone = ids; }));
 
 type Token = { key: string | null; value: string };
 
