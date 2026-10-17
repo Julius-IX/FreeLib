@@ -60,7 +60,7 @@ function SettingsHome() {
           <ThemeSwatches />
         </Preference>
         <SelectPreference
-          title="Dark mode"
+          title="Theme mode"
           value={mode}
           onChange={setMode}
           options={[
