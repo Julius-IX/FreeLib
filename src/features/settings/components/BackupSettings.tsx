@@ -156,7 +156,7 @@ export function BackupSettings() {
               {report.booksUpdated > 0 && <>, {report.booksUpdated} replaced</>}
               {report.booksSkipped > 0 && <>, {report.booksSkipped} already existed and were left alone</>}.
               <br />
-              {report.authorsAdded} authors, {report.seriesAdded} series, {report.tagsAdded} tags, {report.categoriesAdded} categories,{" "}
+              {report.authorsAdded} authors, {report.seriesAdded} series, {report.tagsAdded} tags, {report.categoriesAdded} categories, {report.shelvesAdded} shelves,{" "}
               {report.coversCopied} covers and {report.pluginFilesCopied} plugin files added.
             </DialogContentText>
           )}

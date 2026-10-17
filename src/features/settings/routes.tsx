@@ -12,6 +12,7 @@ import { BackupSettings } from "./components/BackupSettings";
 import { UpdateSettings } from "./components/UpdateSettings";
 import { DebugSettings } from "./components/DebugSettings";
 import { CategoryStylePicker } from "./components/CategoryStylePicker";
+import { ShelvesSettings } from "./components/ShelvesSettings";
 import { CATEGORY_STYLES, useCategoryStyle } from "@/features/library/categoryStyle";
 import {
   Preference, Section, SelectPreference, SliderPreference, SwitchPreference,
@@ -87,6 +88,8 @@ function SettingsHome() {
           <CategoryStylePicker />
         </Preference>
       </Section>
+
+      <ShelvesSettings />
 
       {isLinux() && (
         <Section title="Linux">
