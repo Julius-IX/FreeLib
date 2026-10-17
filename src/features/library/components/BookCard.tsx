@@ -89,7 +89,7 @@ function CategoryChips({ bookId }: { bookId: number }) {
               sx={{
                 width: "100%",
                 height: 8,
-                borderRadius: "4px",
+                borderRadius: "2.5px",
                 bgcolor: c.color,
                 // keeps pale colours visible on a light cover
                 boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
@@ -124,11 +124,14 @@ export default function BookCard({
             left: 0,
             right: 0,
             bottom: 0,
-            p: 1,
-            pt: 4,
-            background: "linear-gradient(transparent, rgba(0,0,0,0.85))",
+            height: "45%",
+            pointerEvents: "none",
+            background:
+              "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.75) 35%, rgba(0,0,0,0) 100%)",
           }}
-        >
+        />
+
+        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, p: 1 }}>
           <Typography
             variant="caption"
             sx={{
@@ -139,6 +142,7 @@ export default function BookCard({
               WebkitBoxOrient: "vertical",
               overflow: "hidden",
               lineHeight: 1.25,
+              textShadow: "0 1px 3px rgba(0,0,0,0.6)",
             }}
           >
             {book.title}

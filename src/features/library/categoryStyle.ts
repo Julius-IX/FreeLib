@@ -12,16 +12,16 @@ import { useSetting } from "@/lib/settings";
 export type CategoryStyle = "filled" | "dot" | "square" | "bar";
 
 export const CATEGORY_STYLES: { value: CategoryStyle; label: string }[] = [
-  { value: "filled", label: "Filled" },
   { value: "dot", label: "Circle" },
   { value: "square", label: "Square" },
   { value: "bar", label: "Top bar" },
+  { value: "filled", label: "Filled" },
 ];
 
 const isCategoryStyle = (v: unknown): v is CategoryStyle => CATEGORY_STYLES.some((s) => s.value === v);
 
 /** Saved in settings.json under `categoryStyle` (also listed in `KNOWN` in settings.rs). */
-export const useCategoryStyle = () => useSetting<CategoryStyle>("categoryStyle", "filled", isCategoryStyle);
+export const useCategoryStyle = () => useSetting<CategoryStyle>("categoryStyle", "dot", isCategoryStyle);
 
 /** Black or white, whichever is easier to read on `color` (`#rrggbb`, `#rgb` or `rgb()` / `rgba()`). */
 export function readableOn(color: string): string {
