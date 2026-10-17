@@ -1,4 +1,4 @@
-import type { MouseEvent } from "react";
+import type { MouseEvent, ReactNode } from "react";
 import { Box, IconButton } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -6,9 +6,12 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 export function BookViewBar({
   onBack,
   onMenu,
+  actions,
 }: {
   onBack: () => void;
   onMenu?: (e: MouseEvent<HTMLElement>) => void;
+  /** Extra buttons, shown left of the menu button. */
+  actions?: ReactNode;
 }) {
   return (
     <Box
@@ -27,11 +30,14 @@ export function BookViewBar({
       <IconButton aria-label="Back" onClick={onBack}>
         <ArrowBackIcon />
       </IconButton>
-      {onMenu && (
-        <IconButton aria-label="More options" onClick={onMenu}>
-          <MoreVertIcon />
-        </IconButton>
-      )}
+      <Box sx={{ display: "flex", alignItems: "center" }}>
+        {actions}
+        {onMenu && (
+          <IconButton aria-label="More options" onClick={onMenu}>
+            <MoreVertIcon />
+          </IconButton>
+        )}
+      </Box>
     </Box>
   );
 }
