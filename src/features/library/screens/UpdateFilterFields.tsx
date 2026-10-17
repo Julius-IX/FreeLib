@@ -4,7 +4,7 @@ import {
   IconButton, Tab, Tabs, TextField, Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import OptionalModal from "@/modal/OptionalModal";
 import { isMobile } from "@/util/misc";
 import { commands } from "@/lib/commands";
@@ -12,16 +12,31 @@ import { notify } from "@/notifications/notify";
 import { defaultTagTypeId } from "../book-form/persistence";
 import { DateField } from "../book-form/DateField";
 import { normTag, normalizePartialDate, startsAfter } from "../book-form/inputs";
+import { CategoryChip } from "@/components/CategoryChip";
+import { selectedChipSx } from "@/components/chipHighlight";
+import { useCategoryStyle } from "../categoryStyle";
+import { bumpLibrary } from "../libraryEvents";
 
-type Kind = "tags" | "series" | "authors";
-type Entry = { id: number; name: string; birth?: string | null; death?: string | null };
+type Kind = "tags" | "categories" | "series" | "authors";
+type Entry = { id: number; name: string; birth?: string | null; death?: string | null; color?: string };
 
-const LABEL: Record<Kind, string> = { tags: "tag", series: "series", authors: "author" };
+const LABEL: Record<Kind, string> = { tags: "tag", categories: "category", series: "series", authors: "author" };
+const LABEL_PLURAL: Record<Kind, string> = { tags: "tags", categories: "categories", series: "series", authors: "authors" };
+
+const HEX = /^#[0-9a-f]{6}$/i;
+const DEFAULT_COLOR = "#3b82f6";
+/** Quick picks under the wheel. */
+const PRESETS = [
+  "#ef4444", "#f97316", "#eab308", "#22c55e", "#14b8a6", "#3b82f6",
+  "#6366f1", "#a855f7", "#ec4899", "#78716c", "#64748b", "#111827",
+];
 
 async function loadEntries(kind: Kind): Promise<Entry[]> {
   let rows: Entry[];
   if (kind === "tags") {
     rows = (await commands.db_crud.listTags()).map((t) => ({ id: t.tagId, name: t.name }));
+  } else if (kind === "categories") {
+    rows = (await commands.db_crud.listCategories()).map((c) => ({ id: c.categoryId, name: c.name, color: c.color }));
   } else if (kind === "series") {
     rows = (await commands.db_crud.listSeries()).map((s) => ({ id: s.seriesId, name: s.name }));
   } else {
@@ -50,12 +65,18 @@ export default function UpdateFilterFields() {
   const [editing, setEditing] = useState<Entry | null>(null);
   const [birth, setBirth] = useState("");
   const [death, setDeath] = useState("");
+  // Categories only: `#rrggbb` as typed (may be half-typed), shown live in the preview chip.
+  const [color, setColor] = useState(DEFAULT_COLOR);
+  const [categoryStyle] = useCategoryStyle();
   const isAuthors = kind === "authors";
+  const isCategories = kind === "categories";
+  const colorBad = isCategories && !HEX.test(color);
 
   const resetForm = useCallback(() => {
     setName("");
     setBirth("");
     setDeath("");
+    setColor(DEFAULT_COLOR);
     setEditing(null);
   }, []);
 
@@ -63,7 +84,7 @@ export default function UpdateFilterFields() {
     try {
       setEntries(await loadEntries(kind));
     } catch {
-      notify(`Couldn't load ${LABEL[kind]}s`, { severity: "error" });
+      notify(`Couldn't load ${LABEL_PLURAL[kind]}`, { severity: "error" });
     }
   }, [kind]);
 
@@ -86,7 +107,7 @@ export default function UpdateFilterFields() {
   const deathBad = isAuthors && deathN === undefined;
   const orderBad = !!birthN && !!deathN && startsAfter(birthN, deathN);
 
-  const canSubmit = !!trimmed && !taken && !busy && !birthBad && !deathBad && !orderBad;
+  const canSubmit = !!trimmed && !taken && !busy && !birthBad && !deathBad && !orderBad && !colorBad;
 
   // Typing in the field also narrows the list, so you can find an existing entry before adding a dupe.
   // While editing an author the list stays whole.
@@ -101,6 +122,7 @@ export default function UpdateFilterFields() {
     setName(e.name);
     setBirth(e.birth ?? "");
     setDeath(e.death ?? "");
+    setColor(e.color ?? DEFAULT_COLOR);
   };
 
   const handleSubmit = async () => {
@@ -109,6 +131,12 @@ export default function UpdateFilterFields() {
     try {
       if (kind === "tags") {
         await commands.db_crud.createTag({ tag: { tagTypeId: await defaultTagTypeId(), name: normTag(trimmed) } });
+      } else if (kind === "categories") {
+        // the table only accepts lower-case-or-not `#rrggbb`; stored lower-case so colour search matches
+        const category = { name: trimmed, color: color.toLowerCase() };
+        if (editing) await commands.db_crud.updateCategory({ categoryId: editing.id, category });
+        else await commands.db_crud.createCategory({ category });
+        bumpLibrary([]); // cards and open book views re-read their category colours
       } else if (kind === "series") {
         await commands.db_crud.createSeries({ name: trimmed });
       } else {
@@ -132,7 +160,10 @@ export default function UpdateFilterFields() {
     setBusy(true);
     try {
       if (kind === "tags") await commands.db_crud.deleteTag({ tagId: target.id });
-      else if (kind === "series") await commands.db_crud.deleteSeries({ seriesId: target.id });
+      else if (kind === "categories") {
+        await commands.db_crud.deleteCategory({ categoryId: target.id });
+        bumpLibrary([]);
+      } else if (kind === "series") await commands.db_crud.deleteSeries({ seriesId: target.id });
       else await commands.db_crud.deleteAuthor({ authorId: target.id });
       if (editing?.id === target.id) resetForm();
       await refresh();
@@ -168,6 +199,7 @@ export default function UpdateFilterFields() {
 
         <Tabs value={kind} onChange={(_, v: Kind) => setKind(v)} variant="fullWidth" sx={{ flexShrink: 0 }}>
           <Tab value="tags" label="Tags" />
+          <Tab value="categories" label="Categories" />
           <Tab value="series" label="Series" />
           <Tab value="authors" label="Authors" />
         </Tabs>
@@ -186,7 +218,7 @@ export default function UpdateFilterFields() {
           helperText={taken ? `A ${LABEL[kind]} with this name already exists` : " "}
           slotProps={{
             input: {
-              endAdornment: isAuthors ? undefined : (
+              endAdornment: isAuthors || isCategories ? undefined : (
                 <Button disabled={!canSubmit} onClick={handleSubmit}>
                   Add
                 </Button>
@@ -194,6 +226,74 @@ export default function UpdateFilterFields() {
             },
           }}
         />
+
+        {isCategories && (
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5, flexShrink: 0 }}>
+            <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+              {/* The native colour input is the wheel / picker of the platform. */}
+              <Box
+                component="input"
+                type="color"
+                aria-label="Pick a color"
+                value={colorBad ? DEFAULT_COLOR : color.toLowerCase()}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setColor(e.target.value)}
+                sx={{
+                  width: 56, height: 56, p: 0, flexShrink: 0, cursor: "pointer",
+                  border: 1, borderColor: "divider", borderRadius: "50%", bgcolor: "transparent",
+                  "&::-webkit-color-swatch-wrapper": { p: 0 },
+                  "&::-webkit-color-swatch": { border: "none", borderRadius: "50%" },
+                  "&::-moz-color-swatch": { border: "none", borderRadius: "50%" },
+                }}
+              />
+              <TextField
+                label="Color"
+                size="small"
+                value={color}
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  setColor(v && !v.startsWith("#") ? `#${v}` : v);
+                }}
+                error={colorBad}
+                helperText={colorBad ? "Use #rrggbb" : " "}
+                sx={{ width: 130 }}
+                slotProps={{ htmlInput: { maxLength: 7, spellCheck: false } }}
+              />
+              <Box sx={{ flex: 1, display: "flex", justifyContent: "center", minWidth: 0 }}>
+                <CategoryChip
+                  category={{ name: trimmed || "Preview", color: colorBad ? DEFAULT_COLOR : color.toLowerCase() }}
+                  variant={categoryStyle}
+                  base="filled"
+                  size="medium"
+                />
+              </Box>
+            </Box>
+            <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+              {PRESETS.map((c) => (
+                <Box
+                  key={c}
+                  component="button"
+                  type="button"
+                  aria-label={`Use ${c}`}
+                  onClick={() => setColor(c)}
+                  sx={{
+                    width: 28, height: 28, p: 0, borderRadius: "50%", cursor: "pointer", bgcolor: c,
+                    border: 2, borderColor: color.toLowerCase() === c ? "text.primary" : "transparent",
+                  }}
+                />
+              ))}
+            </Box>
+            <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+              {editing && (
+                <Button disabled={busy} onClick={resetForm}>
+                  Cancel
+                </Button>
+              )}
+              <Button variant="contained" disabled={!canSubmit} onClick={handleSubmit}>
+                {editing ? "Save" : "Add"}
+              </Button>
+            </Box>
+          </Box>
+        )}
 
         {isAuthors && (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
@@ -249,16 +349,30 @@ export default function UpdateFilterFields() {
             gap: 1,
           }}
         >
-          {visible.map((e) => (
-            <Chip
-              key={e.id}
-              label={isAuthors ? `${e.name}${lifespan(e)}` : e.name}
-              disabled={busy}
-              color={editing?.id === e.id ? "primary" : "default"}
-              onClick={isAuthors ? () => startEdit(e) : undefined}
-              onDelete={() => setPendingDelete(e)}
-            />
-          ))}
+          {visible.map((e) =>
+            isCategories ? (
+              <CategoryChip
+                key={e.id}
+                category={{ name: e.name, color: e.color ?? DEFAULT_COLOR }}
+                variant={categoryStyle}
+                base="filled"
+                size="medium"
+                disabled={busy}
+                sx={editing?.id === e.id ? selectedChipSx : undefined}
+                onClick={() => startEdit(e)}
+                onDelete={() => setPendingDelete(e)}
+              />
+            ) : (
+              <Chip
+                key={e.id}
+                label={isAuthors ? `${e.name}${lifespan(e)}` : e.name}
+                disabled={busy}
+                sx={editing?.id === e.id ? selectedChipSx : undefined}
+                onClick={isAuthors ? () => startEdit(e) : undefined}
+                onDelete={() => setPendingDelete(e)}
+              />
+            ),
+          )}
         </Box>
       </Box>
 
