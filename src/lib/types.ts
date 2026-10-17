@@ -29,6 +29,11 @@ export type BookAuthor = {
   authorId: number;
 }
 
+export type BookCategory = {
+  bookId: number;
+  categoryId: number;
+}
+
 export type BookFilter = {
   text: string | null;
   title: string | null;
@@ -37,11 +42,16 @@ export type BookFilter = {
   author: string | null;
   tag: string | null;
   series: string | null;
+  category: string | null;
+  color: string | null;
   seriesId: number | null;
   authorIdsAny: number[];
   tagIdsAny: number[];
   tagIdsAll: number[];
   tagIdsNone: number[];
+  categoryIdsAny: number[];
+  categoryIdsAll: number[];
+  categoryIdsNone: number[];
   publishFrom: string | null;
   publishTo: string | null;
   pageCountMin: number | null;
@@ -82,9 +92,25 @@ export type BookInput = {
   tagIds: number[];
 }
 
+export type BookSort = {
+  by: SortKey;
+  dir: SortDir;
+}
+
 export type BookTag = {
   bookId: number;
   tagId: number;
+}
+
+export type Category = {
+  categoryId: number;
+  name: string;
+  color: string;
+}
+
+export type CategoryInput = {
+  name: string;
+  color: string;
 }
 
 export type CreatedBackup = {
@@ -167,6 +193,10 @@ export type Series = {
   seriesId: number;
   name: string;
 }
+
+export type SortDir = "asc" | "desc";
+
+export type SortKey = "title" | "author" | "series" | "category" | "added" | "published" | "pages" | "lastRead" | "timesRead";
 
 export type Tag = {
   tagId: number;
