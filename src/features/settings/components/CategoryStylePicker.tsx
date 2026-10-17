@@ -2,7 +2,7 @@ import { Box, useTheme } from "@mui/material";
 import { CategoryChip } from "@/components/CategoryChip";
 import { CATEGORY_STYLES, useCategoryStyle } from "@/features/library/categoryStyle";
 
-const SAMPLE_NAMES = ["Lent", "Borrowed"];
+const SAMPLE_NAMES = ["Lent Out", "Borrowed"];
 
 /** One card of sample chips per style; tap a card to pick it. */
 export function CategoryStylePicker() {
