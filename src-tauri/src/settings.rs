@@ -38,6 +38,7 @@ const KNOWN: &[&str] = &[
   "mode",
   "sidebarW",
   "libraryColumns",
+  "librarySort",
   PLUGINS_DISABLED,
   LINUX_X11_ON_WAYLAND,
   "updates.checkOnStartup",

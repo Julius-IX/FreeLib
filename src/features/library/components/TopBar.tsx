@@ -5,6 +5,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { isDesktop } from "@/util/misc";
 import { useLibrary } from "../LibraryContext";
 import SearchField from "./SearchField";
+import SortMenu from "./SortMenu";
 
 export default function TopBar() {
   const desktop = isDesktop();
@@ -49,6 +50,7 @@ export default function TopBar() {
             <SearchIcon />
           </IconButton>
         )}
+        <SortMenu />
       </Box>
     </Box>
   );
