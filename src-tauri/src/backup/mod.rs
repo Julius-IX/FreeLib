@@ -35,6 +35,10 @@
 //! are saved), `db` (reading the backup database, replace and merge), `files` (covers and
 //! plugin files), `tests`. This file has the two commands and the shared types.
 //!
+//! A backup made by an older version is upgraded by the migrations before it is read. One whose
+//! database is missing optional tables or columns is read with those left empty, and each such
+//! gap comes back in `ImportReport::warnings`; a missing core table or column refuses the import.
+//!
 //! The backup is unpacked and checked in a staging folder first, and the database part of an
 //! import is a single transaction, so a bad file changes nothing.
 
@@ -59,6 +63,8 @@ mod files;
 mod names;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod tests_compat;
 
 use archive::{Staged, fetch_source, save_to, unpack, write_archive};
 use db::{merge_db, read_backup_db, replace_db};
@@ -106,6 +112,9 @@ pub struct ImportReport {
   pub shelves_added: usize,
   pub covers_copied: usize,
   pub plugin_files_copied: usize,
+  /// Parts of the backup that were missing or dropped without stopping the import (an older or
+  /// slightly damaged backup). Empty for a normal one.
+  pub warnings: Vec<String>,
 }
 
 // SECTION: errors
@@ -264,7 +273,10 @@ async fn import_backup(
   let backup = read_backup_db(&staged.db()).await?;
 
   // database
-  let mut report = ImportReport::default();
+  let mut report = ImportReport {
+    warnings: backup.warnings.clone(),
+    ..ImportReport::default()
+  };
   let existed = match mode {
     ImportMode::FullReplace => {
       replace_db(pool.inner(), &backup, &mut report).await?;

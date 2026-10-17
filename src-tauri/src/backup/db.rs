@@ -7,7 +7,8 @@ use std::{
 };
 
 use sqlx::{
-  Connection, Sqlite, SqliteConnection, SqlitePool, Transaction, sqlite::SqliteConnectOptions,
+  Connection, FromRow, Sqlite, SqliteConnection, SqlitePool, Transaction,
+  sqlite::{SqliteConnectOptions, SqliteRow},
 };
 
 use super::names::{isbn_key, name_key};
@@ -26,11 +27,15 @@ pub(super) struct BackupData {
   pub(super) shelves: Vec<Shelf>,
   pub(super) books: Vec<Book>,
   pub(super) notes: HashMap<i64, String>,
+  /// `book.added_at` per book id. Empty string = unknown (the database stamps it).
+  pub(super) added_at: HashMap<i64, String>,
   pub(super) book_authors: Vec<BookAuthor>,
   pub(super) book_tags: Vec<BookTag>,
   pub(super) book_categories: Vec<BookCategory>,
   pub(super) book_shelves: Vec<BookShelf>,
   pub(super) readings: Vec<Reading>,
+  /// Things that were missing or dropped but didn't stop the import. Shown to the user.
+  pub(super) warnings: Vec<String>,
 }
 
 /// Opens the unpacked database (a private copy, so it may be changed), brings it up to this
@@ -60,56 +65,295 @@ pub(super) async fn read_backup_db(path: &Path) -> Res<BackupData> {
       other => BackupError(format!("the backup's database can't be used: {other}")),
     })?;
 
-  let data = BackupData {
-    authors: sqlx::query_as("SELECT author_id, name, birth_date, death_date FROM author")
-      .fetch_all(&mut conn)
-      .await?,
-    series: sqlx::query_as("SELECT series_id, name FROM series")
-      .fetch_all(&mut conn)
-      .await?,
-    tag_types: sqlx::query_as("SELECT tag_type_id, name FROM tag_type")
-      .fetch_all(&mut conn)
-      .await?,
-    tags: sqlx::query_as("SELECT tag_id, tag_type_id, name FROM tag")
-      .fetch_all(&mut conn)
-      .await?,
-    categories: sqlx::query_as("SELECT category_id, name, color FROM category")
-      .fetch_all(&mut conn)
-      .await?,
-    shelves: sqlx::query_as("SELECT shelf_id, name, position FROM shelf ORDER BY position, shelf_id")
-      .fetch_all(&mut conn)
-      .await?,
-    books: sqlx::query_as(
-      "SELECT book_id, title, isbn, publish_date, blurb, page_count, series_id, series_position
-       FROM book ORDER BY book_id",
+  let schema = Schema::load(&mut conn).await?;
+  let mut warnings = Vec::new();
+
+  let mut data = BackupData {
+    authors: read_rows(&mut conn, &schema, &AUTHOR, "", &mut warnings).await?,
+    series: read_rows(&mut conn, &schema, &SERIES, "", &mut warnings).await?,
+    tag_types: read_rows(&mut conn, &schema, &TAG_TYPE, "", &mut warnings).await?,
+    tags: read_rows(&mut conn, &schema, &TAG, "", &mut warnings).await?,
+    categories: read_rows(&mut conn, &schema, &CATEGORY, "", &mut warnings).await?,
+    shelves: read_rows(
+      &mut conn,
+      &schema,
+      &SHELF,
+      "ORDER BY position, shelf_id",
+      &mut warnings,
     )
-    .fetch_all(&mut conn)
     .await?,
-    notes: sqlx::query_as::<_, (i64, String)>("SELECT book_id, notes FROM book")
-      .fetch_all(&mut conn)
+    books: read_rows(&mut conn, &schema, &BOOK, "ORDER BY book_id", &mut warnings).await?,
+    notes: read_rows::<(i64, String)>(&mut conn, &schema, &BOOK_NOTES, "", &mut warnings)
       .await?
       .into_iter()
       .collect(),
-    book_authors: sqlx::query_as("SELECT book_id, author_id FROM book_author")
-      .fetch_all(&mut conn)
+    added_at: read_rows::<(i64, String)>(&mut conn, &schema, &BOOK_ADDED_AT, "", &mut warnings)
+      .await?
+      .into_iter()
+      .collect(),
+    book_authors: read_rows(&mut conn, &schema, &BOOK_AUTHOR, "", &mut warnings).await?,
+    book_tags: read_rows(&mut conn, &schema, &BOOK_TAG, "", &mut warnings).await?,
+    book_categories: read_rows(&mut conn, &schema, &BOOK_CATEGORY, "", &mut warnings).await?,
+    book_shelves: read_rows(&mut conn, &schema, &BOOK_SHELF, "", &mut warnings).await?,
+    readings: read_rows(&mut conn, &schema, &READING, "ORDER BY reading_id", &mut warnings)
       .await?,
-    book_tags: sqlx::query_as("SELECT book_id, tag_id FROM book_tag")
-      .fetch_all(&mut conn)
-      .await?,
-    book_categories: sqlx::query_as("SELECT book_id, category_id FROM book_category")
-      .fetch_all(&mut conn)
-      .await?,
-    book_shelves: sqlx::query_as("SELECT book_id, shelf_id FROM book_shelf")
-      .fetch_all(&mut conn)
-      .await?,
-    readings: sqlx::query_as(
-      "SELECT reading_id, book_id, date_started, date_finished FROM reading ORDER BY reading_id",
-    )
-    .fetch_all(&mut conn)
-    .await?,
+    warnings: Vec::new(),
   };
+  drop_dangling(&mut data, &mut warnings);
+  data.warnings = warnings;
   let _ = conn.close().await;
   Ok(data)
+}
+
+// SECTION: reading a backup of any age
+//
+// The backup's database is brought up to the current schema by the migrations first, which
+// covers everything the migration history knows about (e.g. 1.0.0 -> 1.1.0). What's left is a
+// backup whose database doesn't match its own migration history (hand-edited, damaged, made by
+// a development build). For those: a missing core table or column fails the import with a
+// clear message; anything that's optional is read as empty and reported as a warning.
+
+/// One column the importer reads. `fallback` is the SQL value used when the backup doesn't have
+/// the column; `None` means the backup can't be imported without it.
+struct Col {
+  name: &'static str,
+  fallback: Option<&'static str>,
+}
+
+const fn req(name: &'static str) -> Col {
+  Col { name, fallback: None }
+}
+
+const fn opt(name: &'static str, fallback: &'static str) -> Col {
+  Col {
+    name,
+    fallback: Some(fallback),
+  }
+}
+
+/// One table the importer reads. A missing `required` table fails the import; a missing optional
+/// one is read as empty.
+struct Spec {
+  table: &'static str,
+  required: bool,
+  cols: &'static [Col],
+}
+
+static AUTHOR: Spec = Spec {
+  table: "author",
+  required: true,
+  cols: &[req("author_id"), req("name"), opt("birth_date", "NULL"), opt("death_date", "NULL")],
+};
+static SERIES: Spec = Spec {
+  table: "series",
+  required: true,
+  cols: &[req("series_id"), req("name")],
+};
+static TAG_TYPE: Spec = Spec {
+  table: "tag_type",
+  required: true,
+  cols: &[req("tag_type_id"), req("name")],
+};
+static TAG: Spec = Spec {
+  table: "tag",
+  required: true,
+  cols: &[req("tag_id"), req("tag_type_id"), req("name")],
+};
+static BOOK: Spec = Spec {
+  table: "book",
+  required: true,
+  cols: &[
+    req("book_id"),
+    req("title"),
+    opt("isbn", "NULL"),
+    opt("publish_date", "NULL"),
+    opt("blurb", "NULL"),
+    opt("page_count", "NULL"),
+    opt("series_id", "NULL"),
+    opt("series_position", "NULL"),
+  ],
+};
+// `notes` and `added_at` are read separately from `Book` (see models.rs), so they have their own specs.
+static BOOK_NOTES: Spec = Spec {
+  table: "book",
+  required: true,
+  cols: &[req("book_id"), opt("notes", "''")],
+};
+static BOOK_ADDED_AT: Spec = Spec {
+  table: "book",
+  required: true,
+  cols: &[req("book_id"), opt("added_at", "''")],
+};
+static BOOK_AUTHOR: Spec = Spec {
+  table: "book_author",
+  required: true,
+  cols: &[req("book_id"), req("author_id")],
+};
+static BOOK_TAG: Spec = Spec {
+  table: "book_tag",
+  required: true,
+  cols: &[req("book_id"), req("tag_id")],
+};
+static CATEGORY: Spec = Spec {
+  table: "category",
+  required: false,
+  cols: &[req("category_id"), req("name"), opt("color", "'#888888'")],
+};
+static BOOK_CATEGORY: Spec = Spec {
+  table: "book_category",
+  required: false,
+  cols: &[req("book_id"), req("category_id")],
+};
+static SHELF: Spec = Spec {
+  table: "shelf",
+  required: false,
+  cols: &[req("shelf_id"), req("name"), opt("position", "shelf_id")],
+};
+static BOOK_SHELF: Spec = Spec {
+  table: "book_shelf",
+  required: false,
+  cols: &[req("book_id"), req("shelf_id")],
+};
+static READING: Spec = Spec {
+  table: "reading",
+  required: false,
+  cols: &[
+    req("reading_id"),
+    req("book_id"),
+    opt("date_started", "NULL"),
+    opt("date_finished", "NULL"),
+  ],
+};
+
+/// Which tables and columns the backup's database actually has (lowercase names).
+struct Schema(HashMap<String, HashSet<String>>);
+
+impl Schema {
+  async fn load(conn: &mut SqliteConnection) -> Res<Self> {
+    let rows: Vec<(String, String)> = sqlx::query_as(
+      "SELECT m.name, p.name FROM sqlite_master m JOIN pragma_table_info(m.name) p
+       WHERE m.type = 'table'",
+    )
+    .fetch_all(&mut *conn)
+    .await?;
+    let mut tables: HashMap<String, HashSet<String>> = HashMap::new();
+    for (table, col) in rows {
+      tables
+        .entry(table.to_lowercase())
+        .or_default()
+        .insert(col.to_lowercase());
+    }
+    Ok(Schema(tables))
+  }
+}
+
+/// Reads one table as described by `spec`, filling in what the backup lacks (see above).
+/// `tail` is appended to the query (an ORDER BY).
+async fn read_rows<T>(
+  conn: &mut SqliteConnection,
+  schema: &Schema,
+  spec: &Spec,
+  tail: &str,
+  warnings: &mut Vec<String>,
+) -> Res<Vec<T>>
+where
+  T: for<'r> FromRow<'r, SqliteRow> + Send + Unpin,
+{
+  let Some(have) = schema.0.get(spec.table) else {
+    if spec.required {
+      return Err(BackupError(format!(
+        "the backup is damaged: its `{}` table is missing",
+        spec.table
+      )));
+    }
+    warnings.push(format!(
+      "the backup has no `{}` table, so that part was left empty",
+      spec.table
+    ));
+    return Ok(Vec::new());
+  };
+
+  let mut select = Vec::with_capacity(spec.cols.len());
+  for col in spec.cols {
+    if have.contains(col.name) {
+      select.push(col.name.to_string());
+    } else if let Some(fallback) = col.fallback {
+      select.push(format!("{fallback} AS {}", col.name));
+      warnings.push(format!(
+        "the backup's `{}` table has no `{}` column, so it was filled in with a default",
+        spec.table, col.name
+      ));
+    } else {
+      return Err(BackupError(format!(
+        "the backup is damaged: its `{}` table has no `{}` column",
+        spec.table, col.name
+      )));
+    }
+  }
+  let sql = format!("SELECT {} FROM {} {tail}", select.join(", "), spec.table);
+  Ok(sqlx::query_as(&sql).fetch_all(&mut *conn).await?)
+}
+
+/// Keeps the rows `keep` accepts and says how many were dropped.
+fn prune<T>(rows: &mut Vec<T>, keep: impl Fn(&T) -> bool, what: &str, warnings: &mut Vec<String>) {
+  let before = rows.len();
+  rows.retain(keep);
+  let dropped = before - rows.len();
+  if dropped > 0 {
+    warnings.push(format!("{dropped} {what} pointed at something that isn't in the backup and were skipped"));
+  }
+}
+
+/// Rows that point at a row the backup doesn't have (a missing optional table, a hand-edited
+/// file) would fail a foreign key on insert and abort the whole import. They are dropped instead.
+fn drop_dangling(d: &mut BackupData, warnings: &mut Vec<String>) {
+  let tag_types: HashSet<i64> = d.tag_types.iter().map(|t| t.tag_type_id).collect();
+  prune(&mut d.tags, |t| tag_types.contains(&t.tag_type_id), "tags", warnings);
+
+  let series: HashSet<i64> = d.series.iter().map(|s| s.series_id).collect();
+  let mut unlinked = 0;
+  for b in &mut d.books {
+    if b.series_id.is_some_and(|s| !series.contains(&s)) {
+      b.series_id = None;
+      b.series_position = None;
+      unlinked += 1;
+    }
+  }
+  if unlinked > 0 {
+    warnings.push(format!("{unlinked} books were in a series that isn't in the backup and were left without one"));
+  }
+
+  let books: HashSet<i64> = d.books.iter().map(|b| b.book_id).collect();
+  let authors: HashSet<i64> = d.authors.iter().map(|a| a.author_id).collect();
+  let tags: HashSet<i64> = d.tags.iter().map(|t| t.tag_id).collect();
+  let categories: HashSet<i64> = d.categories.iter().map(|c| c.category_id).collect();
+  let shelves: HashSet<i64> = d.shelves.iter().map(|s| s.shelf_id).collect();
+
+  prune(
+    &mut d.book_authors,
+    |l| books.contains(&l.book_id) && authors.contains(&l.author_id),
+    "author links",
+    warnings,
+  );
+  prune(
+    &mut d.book_tags,
+    |l| books.contains(&l.book_id) && tags.contains(&l.tag_id),
+    "tag links",
+    warnings,
+  );
+  prune(
+    &mut d.book_categories,
+    |l| books.contains(&l.book_id) && categories.contains(&l.category_id),
+    "category links",
+    warnings,
+  );
+  prune(
+    &mut d.book_shelves,
+    |l| books.contains(&l.book_id) && shelves.contains(&l.shelf_id),
+    "shelf links",
+    warnings,
+  );
+  prune(&mut d.readings, |r| books.contains(&r.book_id), "readings", warnings);
 }
 
 // SECTION: apply to the live database
@@ -204,8 +448,8 @@ pub(super) async fn replace_db(
   for b in &data.books {
     sqlx::query(
       "INSERT INTO book (book_id, title, isbn, publish_date, blurb, page_count, series_id,
-                         series_position, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                         series_position, notes, added_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(b.book_id)
     .bind(&b.title)
@@ -216,6 +460,8 @@ pub(super) async fn replace_db(
     .bind(b.series_id)
     .bind(b.series_position)
     .bind(data.notes.get(&b.book_id).map(String::as_str).unwrap_or(""))
+    // '' (unknown) is stamped with the current time by the database
+    .bind(data.added_at.get(&b.book_id).map(String::as_str).unwrap_or(""))
     .execute(&mut *tx)
     .await?;
   }
@@ -633,6 +879,7 @@ async fn merge_books(
     let hit = find_book(&index, &key, &b.title);
     let series_id = b.series_id.and_then(|s| maps.series.get(&s).copied());
     let notes = data.notes.get(&b.book_id).map(String::as_str).unwrap_or("");
+    let added_at = data.added_at.get(&b.book_id).map(String::as_str).unwrap_or("");
 
     let host_id = match hit {
       Some(_) if !overwrite => {
@@ -640,12 +887,12 @@ async fn merge_books(
         continue;
       }
       Some(id) => {
-        overwrite_book(tx, id, b, series_id, notes).await?;
+        overwrite_book(tx, id, b, series_id, notes, added_at).await?;
         report.books_updated += 1;
         id
       }
       None => {
-        let id = insert_book(tx, b, series_id, notes).await?;
+        let id = insert_book(tx, b, series_id, notes, added_at).await?;
         remember_book(&mut index, key, &b.title, id);
         report.books_added += 1;
         id
@@ -680,6 +927,7 @@ async fn overwrite_book(
   b: &Book,
   series_id: Option<i64>,
   notes: &str,
+  added_at: &str,
 ) -> Res<()> {
   sqlx::query(
     "UPDATE book SET title = ?, publish_date = ?, blurb = ?, page_count = ?, series_id = ?,
@@ -695,6 +943,16 @@ async fn overwrite_book(
   .bind(id)
   .execute(&mut **tx)
   .await?;
+  // The book was in the library before the backup's copy was: keep whichever date is older.
+  // (Unknown is '', which would always win the comparison, so it's skipped.)
+  if !added_at.is_empty() {
+    sqlx::query("UPDATE book SET added_at = ? WHERE book_id = ? AND ? < added_at")
+      .bind(added_at)
+      .bind(id)
+      .bind(added_at)
+      .execute(&mut **tx)
+      .await?;
+  }
   for table in ["book_author", "book_tag", "book_category", "book_shelf", "reading"] {
     sqlx::query(&format!("DELETE FROM {table} WHERE book_id = ?"))
       .bind(id)
@@ -705,11 +963,17 @@ async fn overwrite_book(
 }
 
 /// Inserts a book from the backup and returns its new id.
-async fn insert_book(tx: &mut Tx<'_>, b: &Book, series_id: Option<i64>, notes: &str) -> Res<i64> {
+async fn insert_book(
+  tx: &mut Tx<'_>,
+  b: &Book,
+  series_id: Option<i64>,
+  notes: &str,
+  added_at: &str,
+) -> Res<i64> {
   let id: i64 = sqlx::query_scalar(
     "INSERT INTO book (title, isbn, publish_date, blurb, page_count, series_id,
-                       series_position, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING book_id",
+                       series_position, notes, added_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING book_id",
   )
   .bind(&b.title)
   .bind(&b.isbn)
@@ -719,6 +983,7 @@ async fn insert_book(tx: &mut Tx<'_>, b: &Book, series_id: Option<i64>, notes: &
   .bind(series_id)
   .bind(b.series_position)
   .bind(notes)
+  .bind(added_at)
   .fetch_one(&mut **tx)
   .await?;
   Ok(id)

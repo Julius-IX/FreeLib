@@ -144,6 +144,7 @@ export type ImportReport = {
   shelvesAdded: number;
   coversCopied: number;
   pluginFilesCopied: number;
+  warnings: string[];
 }
 
 export type InvalidField = {

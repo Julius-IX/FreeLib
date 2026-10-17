@@ -158,6 +158,16 @@ export function BackupSettings() {
               <br />
               {report.authorsAdded} authors, {report.seriesAdded} series, {report.tagsAdded} tags, {report.categoriesAdded} categories, {report.shelvesAdded} shelves,{" "}
               {report.coversCopied} covers and {report.pluginFilesCopied} plugin files added.
+              {report.warnings.length > 0 && (
+                <Alert severity="warning" sx={{ mt: 2 }}>
+                  Parts of this backup were missing or couldn't be used:
+                  <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
+                    {report.warnings.map((w, i) => (
+                      <li key={i}>{w}</li>
+                    ))}
+                  </ul>
+                </Alert>
+              )}
             </DialogContentText>
           )}
         </DialogContent>

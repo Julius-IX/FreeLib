@@ -299,7 +299,7 @@ fn full_replace_restores_categories_exactly() {
       .await
       .unwrap();
     assert_eq!(names, ["Classics", "Sci-Fi", "fiction"]); // the host's Romance is gone
-    assert_eq!(categories_of(&host, "9780441013593").await.len(), 2);
+    assert_eq!(categories_of(&host, "978-0-441-01359-3").await.len(), 2);
     assert_eq!(categories_of(&host, "9780199535675").await.len(), 1);
   });
 }
