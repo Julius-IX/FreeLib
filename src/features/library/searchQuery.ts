@@ -21,6 +21,8 @@ export function emptyFilter(): BookFilter {
     categoryIdsAny: [],
     categoryIdsAll: [],
     categoryIdsNone: [],
+    shelfIdsAny: [],
+    shelfIdsNone: [],
     publishFrom: null,
     publishTo: null,
     pageCountMin: null,
