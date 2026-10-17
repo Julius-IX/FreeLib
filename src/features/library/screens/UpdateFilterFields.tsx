@@ -163,7 +163,10 @@ export default function UpdateFilterFields() {
       else if (kind === "categories") {
         await commands.db_crud.deleteCategory({ categoryId: target.id });
         bumpLibrary([]);
-      } else if (kind === "series") await commands.db_crud.deleteSeries({ seriesId: target.id });
+      } else if (kind === "series") {
+        await commands.db_crud.deleteSeries({ seriesId: target.id });
+        bumpLibrary([]); // books that were in it lose the series (and position) on screen too
+      }
       else await commands.db_crud.deleteAuthor({ authorId: target.id });
       if (editing?.id === target.id) resetForm();
       await refresh();

@@ -45,7 +45,9 @@ async fn update_series(pool: State<'_, SqlitePool>, series_id: i64, name: String
   )
 }
 
-/// Fails while any book still belongs to the series.
+/// Takes the series off every book that is in it (and clears their series position): the
+/// `series_delete_unlink` trigger in migration 0003 does that, so this never fails on a series
+/// that is in use.
 #[command(db_crud)]
 async fn delete_series(pool: State<'_, SqlitePool>, series_id: i64) -> Res<()> {
   delete_by_id(
