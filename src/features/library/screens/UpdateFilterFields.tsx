@@ -1,9 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import {
   Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle,
-  IconButton, Tab, Tabs, TextField, Typography,
+  IconButton, InputAdornment, Tab, Tabs, TextField, Typography,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ClearIcon from "@mui/icons-material/Clear";
+import SearchIcon from "@mui/icons-material/Search";
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import OptionalModal from "@/modal/OptionalModal";
 import { isMobile } from "@/util/misc";
@@ -61,6 +63,9 @@ export default function UpdateFilterFields() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Entry | null>(null);
+  // Search over the list below. Separate from the add/edit field, and shared by all four tabs
+  // (it is deliberately not reset when switching tabs).
+  const [search, setSearch] = useState("");
   // Authors only: the row being edited (null = adding a new one) and its date fields.
   const [editing, setEditing] = useState<Entry | null>(null);
   const [birth, setBirth] = useState("");
@@ -109,13 +114,12 @@ export default function UpdateFilterFields() {
 
   const canSubmit = !!trimmed && !taken && !busy && !birthBad && !deathBad && !orderBad && !colorBad;
 
-  // Typing in the field also narrows the list, so you can find an existing entry before adding a dupe.
-  // While editing an author the list stays whole.
-  const visible = useMemo(
-    () =>
-      trimmed && !editing ? entries.filter((e) => e.name.toLowerCase().includes(trimmed.toLowerCase())) : entries,
-    [entries, trimmed, editing],
-  );
+  // Only the search box filters the list; typing in the add/edit field never does.
+  const searchTrimmed = search.trim();
+  const visible = useMemo(() => {
+    const q = searchTrimmed.toLowerCase();
+    return q ? entries.filter((e) => e.name.toLowerCase().includes(q)) : entries;
+  }, [entries, searchTrimmed]);
 
   const startEdit = (e: Entry) => {
     setEditing(e);
@@ -163,10 +167,7 @@ export default function UpdateFilterFields() {
       else if (kind === "categories") {
         await commands.db_crud.deleteCategory({ categoryId: target.id });
         bumpLibrary([]);
-      } else if (kind === "series") {
-        await commands.db_crud.deleteSeries({ seriesId: target.id });
-        bumpLibrary([]); // books that were in it lose the series (and position) on screen too
-      }
+      } else if (kind === "series") await commands.db_crud.deleteSeries({ seriesId: target.id });
       else await commands.db_crud.deleteAuthor({ authorId: target.id });
       if (editing?.id === target.id) resetForm();
       await refresh();
@@ -341,6 +342,38 @@ export default function UpdateFilterFields() {
           </Box>
         )}
 
+        <TextField
+          size="small"
+          fullWidth
+          placeholder="Search"
+          sx={{ flexShrink: 0 }}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" && search) {
+              e.stopPropagation(); // clear the search instead of closing the dialog
+              setSearch("");
+            }
+          }}
+          slotProps={{
+            htmlInput: { "aria-label": "Search", spellCheck: false },
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+              endAdornment: search ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" aria-label="Clear search" edge="end" onClick={() => setSearch("")}>
+                    <ClearIcon fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ) : undefined,
+            },
+          }}
+        />
+
         <Box
           sx={{
             flex: 1,
@@ -375,6 +408,11 @@ export default function UpdateFilterFields() {
                 onDelete={() => setPendingDelete(e)}
               />
             ),
+          )}
+          {visible.length === 0 && searchTrimmed && entries.length > 0 && (
+            <Typography color="text.secondary" variant="body2" sx={{ p: 1 }}>
+              No {LABEL_PLURAL[kind]} match "{searchTrimmed}"
+            </Typography>
           )}
         </Box>
       </Box>
