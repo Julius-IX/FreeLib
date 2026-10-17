@@ -44,6 +44,7 @@ pub enum ReadStatus {
 /// - `tag_ids_all`: has every one of these tags
 /// - `tag_ids_none`: has none of these tags
 /// - `category_ids_any` / `category_ids_all` / `category_ids_none`: the same three, for categories
+/// - `shelf_ids_any` / `shelf_ids_none`: on at least one of these shelves / on none of them
 ///
 /// **Book**
 /// - `publish_from` / `publish_to`: publish date range
@@ -95,6 +96,8 @@ pub struct BookFilter {
   pub category_ids_any: Vec<i64>,
   pub category_ids_all: Vec<i64>,
   pub category_ids_none: Vec<i64>,
+  pub shelf_ids_any: Vec<i64>,
+  pub shelf_ids_none: Vec<i64>,
 
   pub publish_from: Option<String>,
   pub publish_to: Option<String>,
@@ -662,6 +665,25 @@ async fn filter_books(
        WHERE bc.book_id = b.book_id AND bc.category_id IN ",
     );
     push_in(&mut qb, &f.category_ids_none);
+    qb.push(")");
+  }
+
+  // shelves: on at least one of these / on none of these. "On none of the shelves" is how the
+  // library finds its unshelved books.
+  if !f.shelf_ids_any.is_empty() {
+    qb.push(
+      " AND EXISTS (SELECT 1 FROM book_shelf bsh \
+       WHERE bsh.book_id = b.book_id AND bsh.shelf_id IN ",
+    );
+    push_in(&mut qb, &f.shelf_ids_any);
+    qb.push(")");
+  }
+  if !f.shelf_ids_none.is_empty() {
+    qb.push(
+      " AND NOT EXISTS (SELECT 1 FROM book_shelf bsh \
+       WHERE bsh.book_id = b.book_id AND bsh.shelf_id IN ",
+    );
+    push_in(&mut qb, &f.shelf_ids_none);
     qb.push(")");
   }
 

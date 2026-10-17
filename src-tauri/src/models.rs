@@ -83,6 +83,22 @@ pub struct BookCategory {
   pub category_id: i64,
 }
 
+/// A user-defined group of books, shown as a tab in the library. `position` is the tab order.
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, TsType)]
+#[serde(rename_all = "camelCase")]
+pub struct Shelf {
+  pub shelf_id: i64,
+  pub name: String,
+  pub position: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, FromRow, TsType)]
+#[serde(rename_all = "camelCase")]
+pub struct BookShelf {
+  pub book_id: i64,
+  pub shelf_id: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, FromRow, TsType)]
 #[serde(rename_all = "camelCase")]
 pub struct Reading {

@@ -52,6 +52,8 @@ export type BookFilter = {
   categoryIdsAny: number[];
   categoryIdsAll: number[];
   categoryIdsNone: number[];
+  shelfIdsAny: number[];
+  shelfIdsNone: number[];
   publishFrom: string | null;
   publishTo: string | null;
   pageCountMin: number | null;
@@ -91,6 +93,11 @@ export type BookInput = {
   authorIds: number[];
   tagIds: number[];
   categoryIds: number[];
+}
+
+export type BookShelf = {
+  bookId: number;
+  shelfId: number;
 }
 
 export type BookSort = {
@@ -134,6 +141,7 @@ export type ImportReport = {
   seriesAdded: number;
   tagsAdded: number;
   categoriesAdded: number;
+  shelvesAdded: number;
   coversCopied: number;
   pluginFilesCopied: number;
 }
@@ -196,6 +204,12 @@ export type ReadingInput = {
 export type Series = {
   seriesId: number;
   name: string;
+}
+
+export type Shelf = {
+  shelfId: number;
+  name: string;
+  position: number;
 }
 
 export type SortDir = "asc" | "desc";

@@ -62,3 +62,23 @@ END;
 
 -- Books that already have a position without a series.
 UPDATE book SET series_position = NULL WHERE series_id IS NULL AND series_position IS NOT NULL;
+
+-- Shelves: user-defined groups of books, shown as tabs at the top of the library. Separate from
+-- categories (coloured labels): a book can sit on any number of shelves, or none.
+--
+-- With no shelves defined the library shows every book in one list and no tabs. Once there are
+-- shelves, books that are on none of them are shown in an "Unshelved" tab.
+CREATE TABLE shelf (
+    shelf_id INTEGER NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    -- tab order, 1-based. Not unique: `reorder_shelves` rewrites all of them at once.
+    position INTEGER NOT NULL
+);
+
+CREATE TABLE book_shelf (
+    book_id INTEGER NOT NULL REFERENCES book (book_id) ON DELETE CASCADE,
+    shelf_id INTEGER NOT NULL REFERENCES shelf (shelf_id) ON DELETE CASCADE,
+    PRIMARY KEY (book_id, shelf_id)
+);
+
+CREATE INDEX idx_book_shelf_shelf ON book_shelf (shelf_id);

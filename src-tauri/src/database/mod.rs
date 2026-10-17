@@ -10,6 +10,7 @@ mod category;
 mod error;
 mod reading;
 mod series;
+mod shelf;
 mod tag;
 mod tag_type;
 mod util;
