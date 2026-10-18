@@ -26,7 +26,7 @@ export default function BookView() {
   const details = state.status === "ready" ? state.details : null;
   const readings = useMemo(() => sortReadings(state.status === "ready" ? state.readings : []), [state]);
   const openReading = readings.find(isOpen) ?? null;
-  const cover = useBookCover(details?.book.isbn);
+  const cover = useBookCover(details?.book.bookId);
 
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const closeMenu = () => setMenuAnchor(null);
@@ -94,7 +94,7 @@ export default function BookView() {
       notify(`Couldn't delete book: ${String(e)}`, { severity: "error" });
       return;
     }
-    bumpLibrary([book.isbn]);
+    bumpLibrary([book.bookId]);
     navigate(-1);
   };
 

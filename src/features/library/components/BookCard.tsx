@@ -12,8 +12,8 @@ import { useLibraryRevision } from "../libraryEvents";
  * across remounts), so the swap from placeholder never paints an empty frame. The background
  * is a backstop so even a stray unpainted frame shows a neutral tile, not white.
  */
-function BookCover({ isbn, title }: { isbn: string | null | undefined; title: string }) {
-  const { url } = useCover(isbn);
+function BookCover({ bookId, title }: { bookId: number; title: string }) {
+  const { url } = useCover(bookId);
   return (
     <Box sx={{ width: "100%", height: "100%", bgcolor: "action.hover" }}>
       <Box
@@ -115,7 +115,7 @@ export default function BookCard({
         onClick={() => onClick?.(book)}
         sx={{ position: "absolute", inset: 0 }}
       >
-        <BookCover isbn={book.isbn} title={book.title} />
+        <BookCover bookId={book.bookId} title={book.title} />
         <CategoryChips bookId={book.bookId} />
 
         <Box

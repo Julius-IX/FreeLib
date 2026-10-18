@@ -2,7 +2,6 @@ import { useEffect, useReducer } from "react";
 import { readFile } from "@tauri-apps/plugin-fs";
 import placeholderCover from "@/assets/placeholder-cover.png";
 import { commands } from "@/lib/commands";
-import { isValidIsbn, normIsbn } from "./book-form/inputs";
 import { useCoverRevision } from "./libraryEvents";
 import { MIME } from "./screens/CoverPreview";
 
@@ -16,8 +15,8 @@ import { MIME } from "./screens/CoverPreview";
 type PathEntry = { rev: number; path: string | null };
 type ImageEntry = { path: string; rev: number; url: string };
 
-const paths = new Map<string, PathEntry>(); // normalized ISBN -> saved cover path (or none)
-const images = new Map<string, ImageEntry>(); // normalized ISBN -> decoded blob URL
+const paths = new Map<number, PathEntry>(); // book id -> saved cover path (or none)
+const images = new Map<number, ImageEntry>(); // book id -> decoded blob URL
 const pending = new Map<string, Promise<void>>();
 
 // Keep the bundled placeholder decoded and in memory so it never flashes either.
@@ -38,10 +37,10 @@ function dedupe(key: string, run: () => Promise<void>) {
 // A just-superseded blob may still be on screen for a moment, so revoke it a little later.
 const revokeLater = (url: string) => setTimeout(() => URL.revokeObjectURL(url), 2000);
 
-function lookupPath(id: string, rev: number) {
+function lookupPath(id: number, rev: number) {
   return dedupe(`path:${id}:${rev}`, async () => {
     try {
-      const path = await commands.covers.getCoverPath({ isbn: id });
+      const path = await commands.covers.getCoverPath({ bookId: id });
       const cur = paths.get(id);
       if (cur && cur.rev > rev) return; // a newer lookup already landed
       paths.set(id, { rev, path });
@@ -60,7 +59,7 @@ function lookupPath(id: string, rev: number) {
   });
 }
 
-function loadImage(id: string, path: string, rev: number) {
+function loadImage(id: number, path: string, rev: number) {
   return dedupe(`img:${id}:${rev}:${path}`, async () => {
     try {
       const bytes = await readFile(path);
@@ -90,9 +89,9 @@ function loadImage(id: string, path: string, rev: number) {
  * `url`: a ready-to-render blob URL, or null -> show the placeholder.
  * While a replaced cover reloads, the previous one stays up rather than blinking to the placeholder.
  */
-export function useCover(isbn: string | null | undefined) {
-  const rev = useCoverRevision(isbn);
-  const id = isbn != null && isValidIsbn(isbn) ? normIsbn(isbn) : null;
+export function useCover(bookId: number | null | undefined) {
+  const rev = useCoverRevision(bookId);
+  const id = bookId ?? null;
   const [, rerender] = useReducer((n: number) => n + 1, 0);
 
   // undefined = not looked up yet, null = looked up, no cover
