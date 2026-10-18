@@ -66,6 +66,7 @@ fn fix_appimage_gstreamer() {
 
 fn on_startup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
   database::init_db(app.handle())?;
+  covers::migrate_legacy_covers(app.handle());
   settings::init(app.handle())?;
   plugins::init(app.handle())?;
   #[cfg(target_os = "linux")]
