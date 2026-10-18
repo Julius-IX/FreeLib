@@ -3,6 +3,7 @@ import type { Reading } from "@/lib/types";
 import { Blurb } from "./Blurb";
 import { BookCoverImage } from "./BookCoverImage";
 import { BookInfo } from "./BookInfo";
+import { RatingRow } from "./RatingRow";
 import { ReadingHistory } from "./ReadingHistory";
 import { CategoryRow } from "./CategoryRow";
 import { TagRow } from "./TagRow";
@@ -36,6 +37,7 @@ export function DesktopLayout({
       <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, minWidth: 0 }}>
         <BookInfo details={details} large />
         {book.blurb && <Blurb text={book.blurb} />}
+        <RatingRow bookId={book.bookId} large />
         <CategoryRow categories={categories} wrap />
         <TagRow tags={tags} wrap />
         <ReadingHistory readings={readings} />

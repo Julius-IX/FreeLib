@@ -3,12 +3,13 @@ import type { Reading } from "@/lib/types";
 import { Blurb } from "./Blurb";
 import { BookCoverImage } from "./BookCoverImage";
 import { BookInfo } from "./BookInfo";
+import { RatingRow } from "./RatingRow";
 import { ReadingHistory } from "./ReadingHistory";
 import { CategoryRow } from "./CategoryRow";
 import { TagRow } from "./TagRow";
 import type { BookDetails } from "./types";
 
-/** Tachiyomi style: cover (col 1) next to the details (col 2), then blurb, categories, tags, read history. */
+/** Tachiyomi style: cover (col 1) next to the details (col 2), then blurb, rating, categories, tags, read history. */
 export function MobileLayout({
   details,
   readings,
@@ -56,6 +57,7 @@ export function MobileLayout({
 
       <Box sx={{ display: "flex", flexDirection: "column", gap: 1, px: 2 }}>
         {book.blurb && <Blurb text={book.blurb} />}
+        <RatingRow bookId={book.bookId} />
         <CategoryRow categories={categories} />
         <TagRow tags={tags} />
         <Box sx={{ pt: 1 }}>
