@@ -1,5 +1,5 @@
-//! Names of things in a backup: archive entries, ISBNs, plugin files, and the keys things are
-//! matched by.
+//! Names of things in a backup: archive entries, cover files, ISBNs, plugin files, and the keys
+//! things are matched by.
 
 use crate::covers;
 
@@ -9,7 +9,8 @@ pub(super) const SETTINGS_FILE: &str = "settings.json";
 pub(super) const PLUGINS_PREFIX: &str = "plugins/";
 pub(super) const COVERS_PREFIX: &str = "cover-images/";
 
-/// Same rule as `normalize_isbn` in `covers`, but only a check (no stripping).
+/// Same rule as `normalize_isbn` in `covers`, but only a check (no stripping). Used to recognise
+/// the cover names older backups have.
 pub(super) fn is_valid_isbn(s: &str) -> bool {
   let digits = |s: &str| s.bytes().all(|b| b.is_ascii_digit());
   match s.len() {
@@ -34,10 +35,35 @@ pub(super) fn name_key(s: &str) -> String {
   s.trim().to_lowercase()
 }
 
-/// `<ISBN>.<ext>` -> the ISBN, if it's a file name `covers` could have written.
-pub(super) fn cover_isbn(file: &str) -> Option<String> {
+/// What a cover file in a backup is named after.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum CoverKey {
+  /// `<book_id>.<ext>`: the book's id in the backup's own database. What backups are made with.
+  Book(i64),
+  /// `<ISBN>.<ext>`: what backups made before covers were stored by book id contain.
+  Isbn(String),
+}
+
+/// The key of a cover file name, if it's one `covers` has ever written. An id never looks like an
+/// ISBN (see `covers::MAX_BOOK_ID`), so there is no ambiguity.
+pub(super) fn cover_key(file: &str) -> Option<CoverKey> {
   let (stem, ext) = file.rsplit_once('.')?;
-  (covers::EXTS.contains(&ext) && is_valid_isbn(stem)).then(|| stem.to_string())
+  if !covers::EXTS.contains(&ext) {
+    return None;
+  }
+  if let Some(id) = covers::parse_book_id(stem) {
+    Some(CoverKey::Book(id))
+  } else if is_valid_isbn(stem) {
+    Some(CoverKey::Isbn(stem.to_string()))
+  } else {
+    None
+  }
+}
+
+/// Whether a file in the covers folder is one a backup should contain: named by book id. (An
+/// ISBN-named file there would be a leftover `covers::migrate_legacy_covers` couldn't move.)
+pub(super) fn is_book_cover(file: &str) -> bool {
+  matches!(cover_key(file), Some(CoverKey::Book(_)))
 }
 
 /// `<id>.js` or `<id>.config.json` with `id` made of `[A-Za-z0-9_-]` (what `plugins` accepts).
@@ -72,7 +98,7 @@ pub(super) fn classify(name: &str) -> Option<Entry> {
       if let Some(f) = name.strip_prefix(PLUGINS_PREFIX) {
         is_plugin_file(f).then(|| Entry::Plugin(f.to_string()))
       } else if let Some(f) = name.strip_prefix(COVERS_PREFIX) {
-        cover_isbn(f).map(|_| Entry::Cover(f.to_string()))
+        cover_key(f).map(|_| Entry::Cover(f.to_string()))
       } else {
         None
       }

@@ -15,14 +15,17 @@ use tauri_plugin_fs::{FilePath, FsExt};
 use zip::{CompressionMethod, write::SimpleFileOptions};
 
 use super::names::{
-  COVERS_PREFIX, DB_FILE, Entry, MANIFEST, PLUGINS_PREFIX, SETTINGS_FILE, classify, cover_isbn,
-  is_plugin_file,
+  COVERS_PREFIX, CoverKey, DB_FILE, Entry, MANIFEST, PLUGINS_PREFIX, SETTINGS_FILE, classify,
+  cover_key, is_book_cover, is_plugin_file,
 };
 use super::{BackupError, Res, ctx};
 use crate::{covers, plugins};
 
 pub(super) const FORMAT: &str = "free-lib-backup";
-pub(super) const FORMAT_VERSION: u32 = 1;
+/// 1: covers named `<ISBN>.<ext>`. 2: covers named `<book_id>.<ext>`. Version 2 is also the one an
+/// older app refuses ("made by a newer version"): it would otherwise skip every cover it can't
+/// recognise without saying so.
+pub(super) const FORMAT_VERSION: u32 = 2;
 
 const MAX_DB_BYTES: u64 = 2 * 1024 * 1024 * 1024;
 const MAX_SETTINGS_BYTES: u64 = 1024 * 1024;
@@ -164,7 +167,7 @@ pub(super) fn write_archive(
     packed,
     "couldn't read a plugin file",
   )?;
-  let cover_files = files_in(&data.join(covers::DIR_NAME), |n| cover_isbn(n).is_some());
+  let cover_files = files_in(&data.join(covers::DIR_NAME), is_book_cover);
   add_files(
     &mut zip,
     COVERS_PREFIX,
@@ -184,8 +187,8 @@ pub(super) struct Staged {
   pub(super) settings: Map<String, Value>,
   /// File names (`<id>.js`, `<id>.config.json`).
   pub(super) plugin_files: Vec<String>,
-  /// `(ISBN, file name)`.
-  pub(super) covers: Vec<(String, String)>,
+  /// `(what the file is named after, file name)`.
+  pub(super) covers: Vec<(CoverKey, String)>,
 }
 
 impl Staged {
@@ -269,8 +272,8 @@ fn unpack_entry(entry: &mut impl Read, kind: Entry, staged: &mut Staged) -> Res<
     }
     Entry::Cover(name) => {
       copy_limited(entry, &staged.cover_path(&name), MAX_COVER_BYTES)?;
-      let isbn = cover_isbn(&name).expect("classify checked this");
-      staged.covers.push((isbn, name));
+      let key = cover_key(&name).expect("classify checked this");
+      staged.covers.push((key, name));
     }
   }
   Ok(())
