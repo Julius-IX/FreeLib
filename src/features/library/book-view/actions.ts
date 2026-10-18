@@ -1,6 +1,5 @@
 import { commands } from "@/lib/commands";
 import type { Book, Reading } from "@/lib/types";
-import { isValidIsbn } from "../book-form/inputs";
 import { removeCover } from "../book-form/persistence";
 import type { BookDraft } from "../book-form/types";
 import { today } from "./format";
@@ -32,14 +31,12 @@ export const endReading = (r: Reading) =>
     reading: { bookId: r.bookId, dateStarted: r.dateStarted, dateFinished: today() },
   });
 
-/** Deletes the book, then its cover (covers are stored by ISBN, so it would otherwise be left behind). */
+/** Deletes the book, then its cover (a separate file keyed by the book's id, so it would otherwise be left behind). */
 export async function deleteBookAndCover(book: Book) {
   await commands.db_crud.deleteBook({ bookId: book.bookId });
-  if (book.isbn && isValidIsbn(book.isbn)) {
-    try {
-      await removeCover(book.isbn);
-    } catch (e) {
-      console.error("deleteBookAndCover: couldn't remove the cover", e);
-    }
+  try {
+    await removeCover(book.bookId);
+  } catch (e) {
+    console.error("deleteBookAndCover: couldn't remove the cover", e);
   }
 }

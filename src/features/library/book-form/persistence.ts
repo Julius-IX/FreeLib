@@ -47,7 +47,5 @@ export async function findBookByIsbn(isbn: string): Promise<Book | null> {
   return books.find((b) => b.isbn && normIsbn(b.isbn) === want) ?? null;
 }
 
-/** Deletes the saved cover for this ISBN, if there is one. */
-export async function removeCover(isbn: string) {
-  if (await commands.covers.getCoverPath({ isbn })) await commands.covers.deleteCover({ isbn });
-}
+/** Deletes the saved cover of this book, if there is one. */
+export const removeCover = (bookId: number) => commands.covers.deleteCover({ bookId });
