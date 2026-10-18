@@ -197,6 +197,32 @@ async fn update_book_notes(pool: State<'_, SqlitePool>, book_id: i64, notes: Str
   Ok(())
 }
 
+/// The book's rating on a 0-10 scale. `0` means not rated (see `0003_rating.sql`).
+#[command(db_crud)]
+async fn get_book_rating(pool: State<'_, SqlitePool>, book_id: i64) -> Res<f64> {
+  Ok(
+    sqlx::query_scalar::<_, f64>("SELECT rating FROM book WHERE book_id = ?")
+      .bind(book_id)
+      .fetch_one(pool.inner())
+      .await?,
+  )
+}
+
+/// Sets the rating (0-10, `0` = not rated).
+#[command(db_crud)]
+async fn update_book_rating(pool: State<'_, SqlitePool>, book_id: i64, rating: f64) -> Res<()> {
+  let n = sqlx::query("UPDATE book SET rating = ? WHERE book_id = ?")
+    .bind(rating)
+    .bind(book_id)
+    .execute(pool.inner())
+    .await?
+    .rows_affected();
+  if n == 0 {
+    return Err(sqlx::Error::RowNotFound.into());
+  }
+  Ok(())
+}
+
 /// Full replacement, authors, tags and categories included. Notes are untouched.
 #[command(db_crud)]
 async fn update_book(pool: State<'_, SqlitePool>, book_id: i64, book: BookInput) -> Res<Book> {
