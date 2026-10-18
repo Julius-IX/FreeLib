@@ -29,6 +29,8 @@ pub(super) struct BackupData {
   pub(super) notes: HashMap<i64, String>,
   /// `book.added_at` per book id. Empty string = unknown (the database stamps it).
   pub(super) added_at: HashMap<i64, String>,
+  /// `book.rating` (0-10, 0 = unrated) per book id. A backup from before ratings existed has none.
+  pub(super) ratings: HashMap<i64, f64>,
   pub(super) book_authors: Vec<BookAuthor>,
   pub(super) book_tags: Vec<BookTag>,
   pub(super) book_categories: Vec<BookCategory>,
@@ -88,6 +90,10 @@ pub(super) async fn read_backup_db(path: &Path) -> Res<BackupData> {
       .into_iter()
       .collect(),
     added_at: read_rows::<(i64, String)>(&mut conn, &schema, &BOOK_ADDED_AT, "", &mut warnings)
+      .await?
+      .into_iter()
+      .collect(),
+    ratings: read_rows::<(i64, f64)>(&mut conn, &schema, &BOOK_RATING, "", &mut warnings)
       .await?
       .into_iter()
       .collect(),
@@ -173,7 +179,7 @@ static BOOK: Spec = Spec {
     opt("series_position", "NULL"),
   ],
 };
-// `notes` and `added_at` are read separately from `Book` (see models.rs), so they have their own specs.
+// `notes`, `added_at` and `rating` are read separately from `Book` (see models.rs), so they have their own specs.
 static BOOK_NOTES: Spec = Spec {
   table: "book",
   required: true,
@@ -183,6 +189,12 @@ static BOOK_ADDED_AT: Spec = Spec {
   table: "book",
   required: true,
   cols: &[req("book_id"), opt("added_at", "''")],
+};
+static BOOK_RATING: Spec = Spec {
+  table: "book",
+  required: true,
+  // a real literal so it reads as a float like the column does
+  cols: &[req("book_id"), opt("rating", "0.0")],
 };
 static BOOK_AUTHOR: Spec = Spec {
   table: "book_author",
@@ -360,6 +372,15 @@ fn drop_dangling(d: &mut BackupData, warnings: &mut Vec<String>) {
 
 pub(super) type Tx<'a> = Transaction<'a, Sqlite>;
 
+/// The backup's rating for a book, kept inside what `book.rating` accepts (0-10) so a hand-edited
+/// value can't abort the whole import. No rating (an older backup) is 0, unrated.
+fn rating_of(data: &BackupData, book_id: i64) -> f64 {
+  match data.ratings.get(&book_id) {
+    Some(r) if r.is_finite() => r.clamp(0.0, 10.0),
+    _ => 0.0,
+  }
+}
+
 pub(super) async fn insert_reading(tx: &mut Tx<'_>, book_id: i64, r: &Reading) -> Res<()> {
   sqlx::query("INSERT INTO reading (book_id, date_started, date_finished) VALUES (?, ?, ?)")
     .bind(book_id)
@@ -448,8 +469,8 @@ pub(super) async fn replace_db(
   for b in &data.books {
     sqlx::query(
       "INSERT INTO book (book_id, title, isbn, publish_date, blurb, page_count, series_id,
-                         series_position, notes, added_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                         series_position, notes, rating, added_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(b.book_id)
     .bind(&b.title)
@@ -460,6 +481,7 @@ pub(super) async fn replace_db(
     .bind(b.series_id)
     .bind(b.series_position)
     .bind(data.notes.get(&b.book_id).map(String::as_str).unwrap_or(""))
+    .bind(rating_of(data, b.book_id))
     // '' (unknown) is stamped with the current time by the database
     .bind(data.added_at.get(&b.book_id).map(String::as_str).unwrap_or(""))
     .execute(&mut *tx)
@@ -882,6 +904,7 @@ async fn merge_books(
     let series_id = b.series_id.and_then(|s| maps.series.get(&s).copied());
     let notes = data.notes.get(&b.book_id).map(String::as_str).unwrap_or("");
     let added_at = data.added_at.get(&b.book_id).map(String::as_str).unwrap_or("");
+    let rating = rating_of(data, b.book_id);
 
     let host_id = match hit {
       Some(_) if !overwrite => {
@@ -889,12 +912,12 @@ async fn merge_books(
         continue;
       }
       Some(id) => {
-        overwrite_book(tx, id, b, series_id, notes, added_at).await?;
+        overwrite_book(tx, id, b, series_id, notes, rating, added_at).await?;
         report.books_updated += 1;
         id
       }
       None => {
-        let id = insert_book(tx, b, series_id, notes, added_at).await?;
+        let id = insert_book(tx, b, series_id, notes, rating, added_at).await?;
         remember_book(&mut index, key, &b.title, id);
         report.books_added += 1;
         id
@@ -931,11 +954,12 @@ async fn overwrite_book(
   b: &Book,
   series_id: Option<i64>,
   notes: &str,
+  rating: f64,
   added_at: &str,
 ) -> Res<()> {
   sqlx::query(
     "UPDATE book SET title = ?, publish_date = ?, blurb = ?, page_count = ?, series_id = ?,
-                     series_position = ?, notes = ? WHERE book_id = ?",
+                     series_position = ?, notes = ?, rating = ? WHERE book_id = ?",
   )
   .bind(&b.title)
   .bind(&b.publish_date)
@@ -944,6 +968,7 @@ async fn overwrite_book(
   .bind(series_id)
   .bind(b.series_position)
   .bind(notes)
+  .bind(rating)
   .bind(id)
   .execute(&mut **tx)
   .await?;
@@ -972,12 +997,13 @@ async fn insert_book(
   b: &Book,
   series_id: Option<i64>,
   notes: &str,
+  rating: f64,
   added_at: &str,
 ) -> Res<i64> {
   let id: i64 = sqlx::query_scalar(
     "INSERT INTO book (title, isbn, publish_date, blurb, page_count, series_id,
-                       series_position, notes, added_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING book_id",
+                       series_position, notes, rating, added_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING book_id",
   )
   .bind(&b.title)
   .bind(&b.isbn)
@@ -987,6 +1013,7 @@ async fn insert_book(
   .bind(series_id)
   .bind(b.series_position)
   .bind(notes)
+  .bind(rating)
   .bind(added_at)
   .fetch_one(&mut **tx)
   .await?;

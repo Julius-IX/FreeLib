@@ -1,5 +1,6 @@
 //! Tests for importing backups that don't match the current schema exactly: made by an older
-//! version, missing optional parts, damaged, or from a newer app. Also `book.added_at` round trips.
+//! version, missing optional parts, damaged, or from a newer app. Also `book.added_at` and
+//! `book.rating` round trips.
 
 use std::{
   borrow::Cow,
@@ -63,6 +64,14 @@ async fn add_book(pool: &SqlitePool, title: &str, isbn: &str) -> i64 {
 
 async fn added_at(pool: &SqlitePool, isbn: &str) -> String {
   sqlx::query_scalar("SELECT added_at FROM book WHERE isbn = ?")
+    .bind(isbn)
+    .fetch_one(pool)
+    .await
+    .unwrap()
+}
+
+async fn rating(pool: &SqlitePool, isbn: &str) -> f64 {
+  sqlx::query_scalar("SELECT rating FROM book WHERE isbn = ?")
     .bind(isbn)
     .fetch_one(pool)
     .await
@@ -188,6 +197,73 @@ fn added_at_survives_merges_and_the_older_date_wins_on_override() {
     assert_eq!(added_at(&host, "9780000000001").await, OLD);
     assert_eq!(added_at(&host, "9780000000002").await, OLD);
     assert_eq!(added_at(&host, "9780000000003").await, "2025-06-01T00:00:00.000Z");
+  });
+}
+
+#[test]
+fn ratings_survive_a_full_replace_and_both_merges() {
+  tauri::async_runtime::block_on(async {
+    let dir = temp_dir("rating");
+    let backup = current_db(&dir.join("backup.sqlite")).await;
+    for (title, isbn, stars) in [("New", "9780000000001", 7.5), ("Both", "9780000000002", 9.0)] {
+      add_book(&backup, title, isbn).await;
+      sqlx::query("UPDATE book SET rating = ? WHERE isbn = ?")
+        .bind(stars)
+        .bind(isbn)
+        .execute(&backup)
+        .await
+        .unwrap();
+    }
+    backup.close().await;
+    let data = read_backup_db(&dir.join("backup.sqlite")).await.unwrap();
+    assert!(data.warnings.is_empty(), "{:?}", data.warnings);
+
+    let host = current_db(&dir.join("replace.sqlite")).await;
+    replace_db(&host, &data, &mut ImportReport::default()).await.unwrap();
+    assert_eq!(rating(&host, "9780000000001").await, 7.5);
+    assert_eq!(rating(&host, "9780000000002").await, 9.0);
+
+    let make_host = |name: &'static str| {
+      let path = dir.join(name);
+      async move {
+        let host = current_db(&path).await;
+        add_book(&host, "Both", "9780000000002").await;
+        sqlx::query("UPDATE book SET rating = 3").execute(&host).await.unwrap();
+        host
+      }
+    };
+
+    // append: the new book brings its rating, the existing one keeps its own
+    let host = make_host("append.sqlite").await;
+    merge_db(&host, &data, false, &mut ImportReport::default()).await.unwrap();
+    assert_eq!(rating(&host, "9780000000001").await, 7.5);
+    assert_eq!(rating(&host, "9780000000002").await, 3.0);
+
+    // override: the backup's version wins
+    let host = make_host("override.sqlite").await;
+    merge_db(&host, &data, true, &mut ImportReport::default()).await.unwrap();
+    assert_eq!(rating(&host, "9780000000001").await, 7.5);
+    assert_eq!(rating(&host, "9780000000002").await, 9.0);
+  });
+}
+
+#[test]
+fn a_backup_from_before_ratings_reads_as_unrated() {
+  tauri::async_runtime::block_on(async {
+    let dir = temp_dir("rating-old");
+    let path = dir.join("backup.sqlite");
+    let old = v1_0_0_db(&path).await;
+    let id = add_book(&old, "Old", "9780000000001").await;
+    old.close().await;
+
+    // the migrations bring it up to date (every book unrated) before it is read
+    let data = read_backup_db(&path).await.unwrap();
+    assert_eq!(data.ratings.get(&id), Some(&0.0));
+    assert!(data.warnings.is_empty(), "{:?}", data.warnings);
+
+    let host = current_db(&dir.join("host.sqlite")).await;
+    replace_db(&host, &data, &mut ImportReport::default()).await.unwrap();
+    assert_eq!(rating(&host, "9780000000001").await, 0.0);
   });
 }
 

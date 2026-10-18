@@ -12,8 +12,10 @@ import { BackupSettings } from "./components/BackupSettings";
 import { UpdateSettings } from "./components/UpdateSettings";
 import { DebugSettings } from "./components/DebugSettings";
 import { CategoryStylePicker } from "./components/CategoryStylePicker";
+import { RatingStylePicker } from "./components/RatingStylePicker";
 import { ShelvesSettings } from "./components/ShelvesSettings";
 import { CATEGORY_STYLES, useCategoryStyle } from "@/features/library/categoryStyle";
+import { RATING_STYLES, useRatingStyle, useRatingThemeColor, useShowRating } from "@/features/library/ratingStyle";
 import {
   Preference, Section, SelectPreference, SliderPreference, SwitchPreference,
 } from "./components/Preferences";
@@ -49,6 +51,9 @@ function SettingsHome() {
   const { min, max } = libraryColumnsRange();
   const [x11OnWayland, setX11OnWayland] = useX11OnWayland();
   const [categoryStyle] = useCategoryStyle();
+  const [showRating, setShowRating] = useShowRating();
+  const [ratingStyle] = useRatingStyle();
+  const [ratingThemeColor, setRatingThemeColor] = useRatingThemeColor();
 
   return (
     <Box sx={{ maxWidth: 720, mx: "auto", pb: 2 }}>
@@ -87,6 +92,28 @@ function SettingsHome() {
         >
           <CategoryStylePicker />
         </Preference>
+        <SwitchPreference
+          title="Show rating"
+          summary="The row of icons under the blurb on a book's page."
+          checked={showRating}
+          onChange={setShowRating}
+        />
+        {showRating && (
+          <>
+            <Preference
+              title="Rating style"
+              summary={RATING_STYLES.find((s) => s.value === ratingStyle)?.label}
+            >
+              <RatingStylePicker />
+            </Preference>
+            <SwitchPreference
+              title="Use theme color for ratings"
+              summary="Draw every style in the theme's color instead of its own (gold stars, red hearts, ...)."
+              checked={ratingThemeColor}
+              onChange={setRatingThemeColor}
+            />
+          </>
+        )}
       </Section>
 
       <ShelvesSettings />
