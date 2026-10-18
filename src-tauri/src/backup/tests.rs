@@ -1,7 +1,7 @@
 //! Tests for the backup module: the three import modes, the file rules, the archive round trip.
 
 use std::{
-  collections::HashSet,
+  collections::HashMap,
   fs,
   io::Write,
   path::{Path, PathBuf},
@@ -14,11 +14,12 @@ use sqlx::{
   sqlite::{SqliteConnectOptions, SqliteJournalMode},
 };
 
-use super::archive::{unpack, write_archive};
+use super::archive::{Staged, unpack, write_archive};
 use super::db::{BackupData, merge_db, read_backup_db, replace_db};
-use super::files::apply_files;
-use super::names::{Entry, classify, isbn_key};
+use super::files::{apply_files, cover_targets};
+use super::names::{CoverKey, Entry, classify, cover_key, isbn_key};
 use super::{ImportMode, ImportReport};
+use crate::models::Book;
 
 fn temp_dir(tag: &str) -> PathBuf {
   static NEXT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
@@ -171,7 +172,7 @@ fn append_merge_keeps_existing_books_and_adds_new_ones() {
   tauri::async_runtime::block_on(async {
     let (host, data) = scenario().await;
     let mut report = ImportReport::default();
-    let existed = merge_db(&host, &data, false, &mut report).await.unwrap();
+    let applied = merge_db(&host, &data, false, &mut report).await.unwrap();
 
     assert_eq!(titles(&host).await, ["Dune host", "Emma", "Ulysses"]);
     assert_eq!(notes_of(&host, "9780441013593").await, "host notes");
@@ -185,7 +186,8 @@ fn append_merge_keeps_existing_books_and_adds_new_ones() {
     );
     // "frank herbert" is the same author as "Frank Herbert": only Joyce is new
     assert_eq!(report.authors_added, 1);
-    assert!(existed.contains("9780441013593") && existed.contains("9780141439587"));
+    // only Ulysses (backup book 2) was written, as the live book 3; Dune was left alone
+    assert_eq!(applied, HashMap::from([(2, 3)]));
     // the existing book's readings weren't doubled
     let n: i64 = sqlx::query_scalar(
       "SELECT COUNT(*) FROM reading r JOIN book b USING (book_id) WHERE b.title = 'Dune host'",
@@ -202,8 +204,10 @@ fn override_merge_replaces_existing_books_with_the_backups_version() {
   tauri::async_runtime::block_on(async {
     let (host, data) = scenario().await;
     let mut report = ImportReport::default();
-    merge_db(&host, &data, true, &mut report).await.unwrap();
+    let applied = merge_db(&host, &data, true, &mut report).await.unwrap();
 
+    // Dune was written over the live book 1, Ulysses was added as the live book 3
+    assert_eq!(applied, HashMap::from([(1, 1), (2, 3)]));
     assert_eq!(titles(&host).await, ["Dune backup", "Emma", "Ulysses"]);
     assert_eq!(notes_of(&host, "9780441013593").await, "backup notes");
     assert_eq!(
@@ -312,12 +316,11 @@ fn archive_round_trip_and_cover_rules() {
   fs::write(data.join("plugins/mine.js"), "// plugin").unwrap();
   fs::write(data.join("plugins/mine.config.json"), "{\"apiKey\":\"k\"}").unwrap();
   fs::write(data.join("plugins/notes.txt"), "not a plugin").unwrap();
-  fs::write(
-    data.join("cover-images/9780441013593.jpg"),
-    b"\xFF\xD8\xFFbackup",
-  )
-  .unwrap();
-  fs::write(data.join("cover-images/9780199535675.png"), b"png").unwrap();
+  // book 1 is Dune and book 2 is Ulysses in the backup's database
+  fs::write(data.join("cover-images/1.jpg"), b"\xFF\xD8\xFFbackup").unwrap();
+  fs::write(data.join("cover-images/2.png"), b"png").unwrap();
+  // an ISBN-named leftover that couldn't be moved to its book's id isn't packed
+  fs::write(data.join("cover-images/9780141439587.jpg"), b"leftover").unwrap();
   let snapshot = temp_dir("rt-snap").join("db.sqlite");
   tauri::async_runtime::block_on(async {
     migrated_pool(&snapshot).await.close().await;
@@ -332,35 +335,27 @@ fn archive_round_trip_and_cover_rules() {
     &settings,
   )
   .unwrap();
-  assert_eq!((covers, plugin_files), (2, 2)); // notes.txt isn't packed
+  assert_eq!((covers, plugin_files), (2, 2)); // notes.txt and the leftover aren't packed
 
   let staged = unpack(&zip_path, &temp_dir("rt-un")).unwrap();
   assert_eq!(staged.settings, settings);
   assert_eq!(staged.covers.len(), 2);
   assert_eq!(staged.plugin_files.len(), 2);
 
-  // append merge into a folder that already has a cover for Dune but not for Ulysses
+  // append merge into a folder that already has a cover for Dune (live book 1) but not for
+  // Ulysses, which the merge adds as live book 3
   let host = temp_dir("rt-host");
   fs::create_dir_all(host.join("cover-images")).unwrap();
-  fs::write(host.join("cover-images/9780441013593.png"), b"host").unwrap();
+  fs::write(host.join("cover-images/1.png"), b"host").unwrap();
   fs::create_dir_all(host.join("plugins")).unwrap();
   fs::write(host.join("plugins/mine.js"), "// host plugin").unwrap();
-  let existed: HashSet<String> = ["9780441013593".to_string()].into();
+  let covers = vec![(3, "2.png".to_string())]; // Dune was left alone, so its cover isn't applied
   let mut report = ImportReport::default();
-  apply_files(
-    &host,
-    &staged,
-    ImportMode::AppendMerge,
-    &existed,
-    &mut report,
-  )
-  .unwrap();
-  assert_eq!(
-    fs::read(host.join("cover-images/9780441013593.png")).unwrap(),
-    b"host"
-  );
-  assert!(!host.join("cover-images/9780441013593.jpg").exists());
-  assert!(host.join("cover-images/9780199535675.png").exists());
+  apply_files(&host, &staged, ImportMode::AppendMerge, &covers, &mut report).unwrap();
+  assert_eq!(fs::read(host.join("cover-images/1.png")).unwrap(), b"host");
+  assert!(!host.join("cover-images/1.jpg").exists());
+  assert!(host.join("cover-images/3.png").exists()); // stored under the live id, not the backup's 2
+  assert!(!host.join("cover-images/2.png").exists());
   assert_eq!(
     fs::read_to_string(host.join("plugins/mine.js")).unwrap(),
     "// host plugin"
@@ -369,35 +364,73 @@ fn archive_round_trip_and_cover_rules() {
   assert_eq!((report.covers_copied, report.plugin_files_copied), (1, 1));
 
   // override merge: the backup's cover replaces the host's, whatever its extension
+  let covers = vec![(1, "1.jpg".to_string()), (3, "2.png".to_string())];
   let mut report = ImportReport::default();
-  apply_files(
-    &host,
-    &staged,
-    ImportMode::OverrideMerge,
-    &existed,
-    &mut report,
-  )
-  .unwrap();
-  assert!(!host.join("cover-images/9780441013593.png").exists());
-  assert!(host.join("cover-images/9780441013593.jpg").exists());
+  apply_files(&host, &staged, ImportMode::OverrideMerge, &covers, &mut report).unwrap();
+  assert!(!host.join("cover-images/1.png").exists());
+  assert!(host.join("cover-images/1.jpg").exists());
   assert_eq!(
     fs::read_to_string(host.join("plugins/mine.js")).unwrap(),
     "// plugin"
   );
 
   // full replace wipes what the backup doesn't have
-  fs::write(host.join("cover-images/9780141439587.jpg"), b"only here").unwrap();
+  fs::write(host.join("cover-images/5.jpg"), b"only here").unwrap();
+  let covers = vec![(1, "1.jpg".to_string()), (2, "2.png".to_string())];
   let mut report = ImportReport::default();
-  apply_files(
-    &host,
-    &staged,
-    ImportMode::FullReplace,
-    &HashSet::new(),
-    &mut report,
-  )
-  .unwrap();
-  assert!(!host.join("cover-images/9780141439587.jpg").exists());
+  apply_files(&host, &staged, ImportMode::FullReplace, &covers, &mut report).unwrap();
+  assert!(!host.join("cover-images/5.jpg").exists());
+  assert!(host.join("cover-images/1.jpg").exists() && host.join("cover-images/2.png").exists());
   assert_eq!(report.covers_copied, 2);
+}
+
+fn backup_book(book_id: i64, isbn: Option<&str>) -> Book {
+  Book {
+    book_id,
+    title: format!("book {book_id}"),
+    isbn: isbn.map(str::to_string),
+    publish_date: None,
+    blurb: None,
+    page_count: None,
+    series_id: None,
+    series_position: None,
+  }
+}
+
+#[test]
+fn covers_follow_their_books_to_the_ids_the_import_gave_them() {
+  let books = [
+    backup_book(1, Some("978-0-441-01359-3")), // dashes in the database, none in the file name
+    backup_book(2, Some("9780199535675")),
+    backup_book(3, Some("9780141439587")),
+    backup_book(4, None),
+  ];
+  // what the import wrote: backup book -> live book. Book 3 was left alone.
+  let applied = HashMap::from([(1, 10), (2, 20), (4, 40)]);
+  let named = |key, file: &str| (key, file.to_string());
+  let staged = Staged {
+    root: temp_dir("targets"),
+    settings: serde_json::Map::new(),
+    plugin_files: vec![],
+    covers: vec![
+      // from a backup made before covers were stored by book id
+      named(CoverKey::Isbn("9780441013593".into()), "9780441013593.jpg"),
+      named(CoverKey::Isbn("9780141439587".into()), "9780141439587.jpg"), // book 3: left alone
+      named(CoverKey::Isbn("9780000000000".into()), "9780000000000.jpg"), // no such book
+      // from a current backup
+      named(CoverKey::Book(2), "2.png"),
+      named(CoverKey::Book(4), "4.webp"), // a book without an ISBN
+      named(CoverKey::Book(99), "99.gif"), // no such book
+    ],
+  };
+  assert_eq!(
+    cover_targets(&staged, &books, &applied),
+    [
+      (10, "9780441013593.jpg".to_string()),
+      (20, "2.png".to_string()),
+      (40, "4.webp".to_string()),
+    ]
+  );
 }
 
 #[test]
@@ -439,6 +472,10 @@ fn only_known_entry_names_are_unpacked() {
     classify("cover-images/019971110X.webp"),
     Some(Entry::Cover(_))
   ));
+  assert!(matches!(
+    classify("cover-images/42.png"),
+    Some(Entry::Cover(_))
+  ));
   for bad in [
     "../evil.js",
     "plugins/../evil.js",
@@ -448,6 +485,10 @@ fn only_known_entry_names_are_unpacked() {
     "cover-images/../x.jpg",
     "cover-images/abc.jpg",
     "cover-images/9780441013593.exe",
+    "cover-images/0.jpg",
+    "cover-images/007.jpg",
+    "cover-images/+7.jpg",
+    "cover-images/42.exe",
     "/etc/passwd",
     "other/file",
   ] {
@@ -463,4 +504,17 @@ fn isbns_are_compared_without_dashes_or_spaces() {
   );
   assert_eq!(isbn_key("0-19-953567-x").as_deref(), Some("019953567X"));
   assert_eq!(isbn_key("  "), None);
+}
+
+#[test]
+fn cover_names_are_either_a_book_id_or_an_isbn() {
+  assert_eq!(cover_key("7.jpg"), Some(CoverKey::Book(7)));
+  assert_eq!(cover_key("999999999.png"), Some(CoverKey::Book(999_999_999)));
+  // ten digits and up is an ISBN's shape, never an id
+  assert_eq!(cover_key("1000000000.jpg"), Some(CoverKey::Isbn("1000000000".into())));
+  assert_eq!(cover_key("9780441013593.jpg"), Some(CoverKey::Isbn("9780441013593".into())));
+  assert_eq!(cover_key("019971110X.webp"), Some(CoverKey::Isbn("019971110X".into())));
+  for bad in ["0.jpg", "007.jpg", "+7.jpg", "-7.jpg", "7.exe", "7", "abc.jpg", ".jpg"] {
+    assert_eq!(cover_key(bad), None, "{bad}");
+  }
 }

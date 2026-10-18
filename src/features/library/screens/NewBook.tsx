@@ -15,7 +15,7 @@ import { CoverField } from "../book-form/CoverField";
 import { DateField } from "../book-form/DateField";
 import { SeriesField } from "../book-form/SeriesField";
 import { toChoice, toChoices } from "../book-form/choice";
-import { emptyToNull, isValidIsbn, noSpinners, normIsbn, normTag, normalizeDate, numOrNull } from "../book-form/inputs";
+import { emptyToNull, isValidIsbn, noSpinners, normTag, normalizeDate, numOrNull } from "../book-form/inputs";
 import { defaultTagTypeId, findBookByIsbn, removeCover, saveNew } from "../book-form/persistence";
 import type { BookDraft, BookFields, Choice } from "../book-form/types";
 import { bumpLibrary } from "../libraryEvents";
@@ -85,7 +85,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const outlet = useOutlet({ cover, setCover } satisfies CoverCtx);
 
   const hasCover = cover.trim() !== "";
-  // An ISBN is required: it's the book's identity here and the cover's file name.
+  // An ISBN is required: it's the book's identity here (the same book is found again by it, and backups match books by it).
   const isbnInvalid = fields.isbn === null || !isValidIsbn(fields.isbn);
   const publishDate = normalizeDate(dateText); // undefined = not a valid date
   const dateInvalid = publishDate === undefined;
@@ -95,7 +95,7 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
     const isbn = fields.isbn;
     if (!canCreate || !isbn) return;
     setSaving(true);
-    let replaced: Book | null = null; // the existing entry this save overrides, if any
+    let saved: Book; // the row as it is now: its id is what the cover is stored under
     try {
       // Nothing is written until now. State is updated after each step, so if a later
       // step fails and the user retries, what was already saved isn't created again.
@@ -150,9 +150,9 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         if (byIsbn && byIsbn.bookId !== editId) throw new Error("another book already uses this ISBN");
         target = await commands.db_crud.getBook({ bookId: editId });
       }
-      replaced = target;
-      if (target) await commands.db_crud.updateBook({ bookId: target.bookId, book });
-      else await commands.db_crud.createBook({ book });
+      saved = target
+        ? await commands.db_crud.updateBook({ bookId: target.bookId, book })
+        : await commands.db_crud.createBook({ book });
     } catch (e) {
       setSaving(false);
       notify(`Couldn't save book: ${String(e)}`, { severity: "error" });
@@ -160,40 +160,31 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
     }
 
     try {
-      if (editing && hasCover && cover.trim() === initialCover) {
-        // Unchanged saved cover: re-saving would copy the file onto itself. It only needs to
-        // follow the book if the ISBN changed (the old one is cleaned up below).
-        if (replaced?.isbn && normIsbn(replaced.isbn) !== normIsbn(isbn)) {
-          await withTimeout(commands.covers.saveCover({ isbn, source: initialCover }), 40_000, "moving the cover");
-        }
-      } else if (hasCover) {
+      // An unchanged saved cover is stored under the book's id, which an edit never changes (not
+      // even when the ISBN does), so there is nothing to copy or move.
+      const coverUnchanged = editing && hasCover && cover.trim() === initialCover;
+      if (hasCover && !coverUnchanged) {
         const source = cover.trim();
         // Longer than the 30 s download timeout in Rust, so this only fires if the command
         // never answers at all. The source kind (http / content / file / path) is in the
         // message because it tells us which Rust branch is stuck.
         const kind = /^([a-z][a-z0-9+.-]+):/i.exec(source)?.[1] ?? "path";
         console.log(`saveCover: start, source kind=${kind}`);
-        await withTimeout(commands.covers.saveCover({ isbn, source }), 40_000, `saving the cover (${kind})`);
+        await withTimeout(commands.covers.saveCover({ bookId: saved.bookId, source }), 40_000, `saving the cover (${kind})`);
         console.log("saveCover: done");
-      }
-
-      // Covers are stored by ISBN, so an override can leave a cover with no matching book:
-      // the old entry's cover under a differently written ISBN, or the old cover when this
-      // save has none.
-      if (replaced) {
-        const stale = new Set<string>();
-        if (replaced.isbn && normIsbn(replaced.isbn) !== normIsbn(isbn)) stale.add(replaced.isbn);
-        if (!hasCover) stale.add(isbn);
-        for (const s of stale) await removeCover(s);
+      } else if (!hasCover) {
+        // No cover (or the user cleared it): make sure none is left, including a stale one that a
+        // deleted book's reused id could otherwise inherit.
+        await removeCover(saved.bookId);
       }
     } catch (e) {
       notify(`Book saved, but the cover couldn't be updated: ${String(e)}`, { severity: "warning", duration: 12000 });
     }
 
     // Only now is the book AND its cover on disk. Tell the list to re-query and the affected
-    // cards to re-read their cover (before this, a card could mount, find no file yet, and
+    // card to re-read its cover (before this, a card could mount, find no file yet, and
     // never look again).
-    bumpLibrary([isbn, replaced?.isbn]);
+    bumpLibrary([saved.bookId]);
     navigate(-1);
   };
 

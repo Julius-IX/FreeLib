@@ -8,9 +8,9 @@ export const commands = {
     importBackup: (args: { source: string; mode: ImportMode }) => invoke<ImportReport>("backup__import_backup", args),
   },
   covers: {
-    deleteCover: (args: { isbn: string }) => invoke<void>("covers__delete_cover", args),
-    getCoverPath: (args: { isbn: string }) => invoke<string | null>("covers__get_cover_path", args),
-    saveCover: (args: { isbn: string; source: string }) => invoke<string>("covers__save_cover", args),
+    deleteCover: (args: { bookId: number }) => invoke<void>("covers__delete_cover", args),
+    getCoverPath: (args: { bookId: number }) => invoke<string | null>("covers__get_cover_path", args),
+    saveCover: (args: { bookId: number; source: string }) => invoke<string>("covers__save_cover", args),
   },
   db: {
     countUnshelvedBooks: () => invoke<number>("db__count_unshelved_books"),

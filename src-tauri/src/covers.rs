@@ -1,21 +1,28 @@
-//! Cover images, stored as `<app data dir>/cover-images/<ISBN>.<ext>`.
+//! Cover images, stored as `<app data dir>/cover-images/<book_id>.<ext>`.
 //!
-//! The ISBN is the file name (it's already unique, so a re-save simply
-//! replaces the old cover and nothing is stored twice). The extension comes
-//! from the file's actual bytes, not from the source name, so the stored file
-//! is always a real image.
+//! The book's id is the file name (it's unique and, unlike the ISBN, never changes and every book
+//! has one), so a re-save simply replaces the old cover and nothing is stored twice. The extension
+//! comes from the file's actual bytes, not from the source name, so the stored file is always a
+//! real image.
+//!
+//! Versions before this one named the file after the book's ISBN (`<ISBN>.<ext>`). Those covers are
+//! renamed to the book's id on every startup (`migrate_legacy_covers`), before the frontend asks
+//! for any of them, so nothing outside this module ever has to know about the old names. Backups
+//! made by those versions are converted while they are imported (see `backup`).
 //!
 //! `save_cover` accepts an http(s) URL, a plain file path, a `file://` URL, or
 //! (Android gallery picks) a `content://` URI. Local reads go through
 //! tauri-plugin-fs, which is the one API that understands content URIs.
 
 use std::{
+  collections::HashMap,
   fs,
   path::{Path, PathBuf},
   time::Duration,
 };
 
 use serde::{Serialize, Serializer};
+use sqlx::SqlitePool;
 use tauri::{AppHandle, Manager};
 use tauri_groups::command;
 use tauri_plugin_fs::{FilePath, FsExt};
@@ -25,6 +32,10 @@ const MAX_BYTES: usize = 15 * 1024 * 1024;
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(30);
 /// Every extension `detect_ext` can return.
 pub(crate) const EXTS: [&str; 4] = ["jpg", "png", "webp", "gif"];
+/// The largest book id a cover can be stored under: nine digits. ISBNs are 10 or 13 characters,
+/// so a file stem is never both a valid book id and a valid ISBN. That is what lets the legacy
+/// `<ISBN>.<ext>` names and the current `<book_id>.<ext>` ones share a folder without ambiguity.
+const MAX_BOOK_ID: i64 = 999_999_999;
 
 // SECTION: errors
 
@@ -48,6 +59,29 @@ type Res<T> = Result<T, CoverError>;
 
 // SECTION: helpers
 
+/// Rejects ids no cover can be stored under (only a hand-edited database would have one).
+fn check_book_id(book_id: i64) -> Res<i64> {
+  if (1..=MAX_BOOK_ID).contains(&book_id) {
+    Ok(book_id)
+  } else {
+    Err(CoverError::new(format!("invalid book id: {book_id}")))
+  }
+}
+
+/// The book id a cover file name stem stands for: plain digits, no sign and no leading zeros.
+/// `None` for anything else, including every ISBN.
+pub(crate) fn parse_book_id(stem: &str) -> Option<i64> {
+  let id: i64 = stem.parse().ok()?;
+  // Round-tripping through `to_string` rejects "+5", "007" and the like.
+  if (1..=MAX_BOOK_ID).contains(&id) && id.to_string() == stem {
+    Some(id)
+  } else {
+    None
+  }
+}
+
+/// Only used to recognise and move covers saved under the old, ISBN-based names.
+///
 /// Strips `-` / spaces, upper-cases a trailing `x`, and accepts only 10- or
 /// 13-character ISBNs. This also guarantees the value is safe to use as a
 /// file name (no separators, no `..`).
@@ -82,10 +116,10 @@ fn covers_dir(app: &AppHandle) -> Res<PathBuf> {
   Ok(dir)
 }
 
-pub(crate) fn existing_cover(dir: &Path, isbn: &str) -> Option<PathBuf> {
+fn existing_cover(dir: &Path, book_id: i64) -> Option<PathBuf> {
   EXTS
     .iter()
-    .map(|ext| dir.join(format!("{isbn}.{ext}")))
+    .map(|ext| dir.join(format!("{book_id}.{ext}")))
     .find(|p| p.is_file())
 }
 
@@ -190,28 +224,113 @@ async fn load_source(app: &AppHandle, source: &str) -> Res<Vec<u8>> {
   }
 }
 
+// SECTION: legacy ISBN-named covers
+
+/// The covers an older version saved, by normalised ISBN: `<ISBN>.<ext>` -> (file, extension).
+fn legacy_cover_files(dir: &Path) -> HashMap<String, (PathBuf, &'static str)> {
+  let Ok(read) = fs::read_dir(dir) else {
+    return HashMap::new();
+  };
+  read
+    .flatten()
+    .filter(|e| e.path().is_file())
+    .filter_map(|e| {
+      let path = e.path();
+      let name = path.file_name()?.to_str()?.to_owned();
+      let (stem, ext) = name.rsplit_once('.')?;
+      let ext = EXTS.iter().copied().find(|x| *x == ext)?;
+      // A stem that is a valid, already normalised ISBN. Anything else (a book id, a temp file,
+      // a stray file) isn't ours to touch.
+      let isbn = normalize_isbn(stem).ok().filter(|n| n == stem)?;
+      Some((isbn, (path, ext)))
+    })
+    .collect()
+}
+
+/// Renames `legacy` covers to the id of the book that has that ISBN. `books` is `(book_id, isbn)`
+/// for every book with an ISBN. Returns how many were renamed.
+///
+/// A cover is only ever moved onto a name that is free: if the book already has a cover under its
+/// id, the old file is left where it is rather than guessing which of the two is wanted. Covers of
+/// ISBNs no book has any more are left alone as well (they were already orphans).
+fn adopt_legacy_covers(
+  dir: &Path,
+  legacy: &HashMap<String, (PathBuf, &'static str)>,
+  books: &[(i64, String)],
+) -> usize {
+  let mut moved = 0;
+  for (book_id, isbn) in books {
+    let Ok(isbn) = normalize_isbn(isbn) else {
+      continue;
+    };
+    let Some((from, ext)) = legacy.get(&isbn) else {
+      continue;
+    };
+    if check_book_id(*book_id).is_err() || existing_cover(dir, *book_id).is_some() {
+      continue;
+    }
+    match fs::rename(from, dir.join(format!("{book_id}.{ext}"))) {
+      Ok(()) => moved += 1,
+      Err(e) => eprintln!("couldn't move cover {} to book {book_id}: {e}", from.display()),
+    }
+  }
+  moved
+}
+
+/// Moves covers saved by older versions (named after the ISBN) to the book-id names this version
+/// reads. Runs at every startup, after the database is ready and before the window loads, so it
+/// also picks up covers an older version saved after a downgrade. It costs one directory read when
+/// there is nothing to move. A failure is logged and never stops the app from starting; the
+/// covers just stay where they are.
+pub(crate) fn migrate_legacy_covers(app: &AppHandle) {
+  let Ok(base) = app.path().app_data_dir() else {
+    return;
+  };
+  let dir = base.join(DIR_NAME);
+  let legacy = legacy_cover_files(&dir);
+  if legacy.is_empty() {
+    return;
+  }
+  let Some(pool) = app.try_state::<SqlitePool>() else {
+    return;
+  };
+  let books = tauri::async_runtime::block_on(
+    sqlx::query_as::<_, (i64, String)>("SELECT book_id, isbn FROM book WHERE isbn IS NOT NULL")
+      .fetch_all(pool.inner()),
+  );
+  match books {
+    Ok(books) => {
+      let moved = adopt_legacy_covers(&dir, &legacy, &books);
+      if moved > 0 {
+        eprintln!("moved {moved} cover(s) from ISBN names to book ids");
+      }
+    }
+    Err(e) => eprintln!("couldn't read the books to move their covers: {e}"),
+  }
+}
+
 // SECTION: commands
 
 /// Copies the image at `source` (URL, file path, or Android content URI) into
-/// the app's `cover-images/` folder as `<isbn>.<ext>`, replacing any previous
-/// cover for that ISBN. Returns the absolute path of the stored file.
+/// the app's `cover-images/` folder as `<book_id>.<ext>`, replacing any previous
+/// cover of that book. Returns the absolute path of the stored file.
 #[command(covers)]
-async fn save_cover(app: AppHandle, isbn: String, source: String) -> Res<String> {
-  let isbn = normalize_isbn(&isbn)?;
+async fn save_cover(app: AppHandle, book_id: i64, source: String) -> Res<String> {
+  let book_id = check_book_id(book_id)?;
   let bytes = load_source(&app, &source).await?;
   let ext = detect_ext(&bytes)
     .ok_or_else(|| CoverError::new("not a supported image (jpg, png, webp or gif)"))?;
 
   let dir = covers_dir(&app)?;
-  let target = dir.join(format!("{isbn}.{ext}"));
+  let target = dir.join(format!("{book_id}.{ext}"));
 
   // Write beside the target, then rename, so a crash never leaves a
   // half-written cover behind.
-  let tmp = dir.join(format!(".{isbn}.tmp"));
+  let tmp = dir.join(format!(".{book_id}.tmp"));
   fs::write(&tmp, &bytes).map_err(|e| CoverError::new(format!("couldn't write cover: {e}")))?;
 
   // Drop a cover saved earlier under a different extension.
-  if let Some(old) = existing_cover(&dir, &isbn) {
+  if let Some(old) = existing_cover(&dir, book_id) {
     if old != target {
       let _ = fs::remove_file(old);
     }
@@ -224,21 +343,78 @@ async fn save_cover(app: AppHandle, isbn: String, source: String) -> Res<String>
   Ok(target.to_string_lossy().into_owned())
 }
 
-/// Absolute path of the stored cover for `isbn`, or `null` if there isn't one.
+/// Absolute path of the stored cover of `book_id`, or `null` if there isn't one.
 #[command(covers)]
-async fn get_cover_path(app: AppHandle, isbn: String) -> Res<Option<String>> {
-  let isbn = normalize_isbn(&isbn)?;
+async fn get_cover_path(app: AppHandle, book_id: i64) -> Res<Option<String>> {
+  let book_id = check_book_id(book_id)?;
   let dir = covers_dir(&app)?;
-  Ok(existing_cover(&dir, &isbn).map(|p| p.to_string_lossy().into_owned()))
+  Ok(existing_cover(&dir, book_id).map(|p| p.to_string_lossy().into_owned()))
 }
 
-/// Removes the stored cover for `isbn`. Not an error if there wasn't one.
+/// Removes the stored cover of `book_id`. Not an error if there wasn't one.
 #[command(covers)]
-async fn delete_cover(app: AppHandle, isbn: String) -> Res<()> {
-  let isbn = normalize_isbn(&isbn)?;
+async fn delete_cover(app: AppHandle, book_id: i64) -> Res<()> {
+  let book_id = check_book_id(book_id)?;
   let dir = covers_dir(&app)?;
-  if let Some(p) = existing_cover(&dir, &isbn) {
+  if let Some(p) = existing_cover(&dir, book_id) {
     fs::remove_file(p).map_err(|e| CoverError::new(format!("couldn't delete cover: {e}")))?;
   }
   Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn temp_dir(tag: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("free-lib-covers-{tag}-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&dir);
+    fs::create_dir_all(&dir).unwrap();
+    dir
+  }
+
+  #[test]
+  fn book_ids_are_plain_positive_numbers_that_can_never_be_isbns() {
+    assert_eq!(parse_book_id("7"), Some(7));
+    assert_eq!(parse_book_id("999999999"), Some(999_999_999));
+    for bad in ["", "0", "007", "+7", "-7", "1a", "1000000000", "9780441013593", "019971110X"] {
+      assert_eq!(parse_book_id(bad), None, "{bad}");
+    }
+    assert!(check_book_id(1).is_ok() && check_book_id(MAX_BOOK_ID).is_ok());
+    assert!(check_book_id(0).is_err() && check_book_id(-3).is_err());
+    assert!(check_book_id(MAX_BOOK_ID + 1).is_err());
+  }
+
+  #[test]
+  fn covers_named_after_the_isbn_are_moved_to_the_book_id() {
+    let dir = temp_dir("legacy");
+    let put = |name: &str, bytes: &[u8]| fs::write(dir.join(name), bytes).unwrap();
+    put("9780441013593.jpg", b"dune"); // book 4, whose ISBN is stored with dashes
+    put("9780199535675.png", b"old"); // book 5, which already has a cover under its id
+    put("5.webp", b"new");
+    put("9780141439587.gif", b"orphan"); // no book has this ISBN any more
+    put("7.jpg", b"already moved");
+    put(".9780441013593.tmp", b"half written");
+    let books = [
+      (4, "978-0-441-01359-3".to_string()),
+      (5, "9780199535675".to_string()),
+      (6, "not an isbn".to_string()),
+    ];
+
+    let legacy = legacy_cover_files(&dir);
+    assert_eq!(legacy.len(), 3); // the three ISBN-named covers, nothing else
+    assert_eq!(adopt_legacy_covers(&dir, &legacy, &books), 1);
+
+    assert_eq!(fs::read(dir.join("4.jpg")).unwrap(), b"dune");
+    assert!(!dir.join("9780441013593.jpg").exists());
+    // never moved onto a name that is taken, never deleted, never touched when nothing matches
+    assert_eq!(fs::read(dir.join("5.webp")).unwrap(), b"new");
+    assert!(dir.join("9780199535675.png").exists());
+    assert!(dir.join("9780141439587.gif").exists());
+    assert!(dir.join("7.jpg").exists());
+
+    // a second run has nothing left to move
+    assert_eq!(adopt_legacy_covers(&dir, &legacy_cover_files(&dir), &books), 0);
+    let _ = fs::remove_dir_all(&dir);
+  }
 }

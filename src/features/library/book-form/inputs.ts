@@ -53,8 +53,7 @@ export const normTag = (s: string) => s.trim().toLowerCase();
 export const normIsbn = (s: string) => s.replace(/[\s-]/g, "").toUpperCase(); // 978-0-... == 9780...
 
 /**
- * Same rule as `normalize_isbn` in the Rust covers module: 13 digits, or 9 digits plus a digit
- * or X. No checksum. Anything the backend would reject is rejected here too, so a book can't
- * be saved with an ISBN its cover could never be stored under.
+ * 13 digits, or 9 digits plus a digit or X. No checksum. (The Rust covers module applies the same
+ * rule, but only to recognise covers older versions saved under the ISBN.)
  */
 export const isValidIsbn = (s: string) => /^(\d{13}|\d{9}[\dX])$/.test(normIsbn(s));
