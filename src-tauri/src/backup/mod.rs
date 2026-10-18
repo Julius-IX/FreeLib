@@ -7,7 +7,7 @@
 //!   db.sqlite              a consistent snapshot made with `VACUUM INTO`
 //!   settings.json
 //!   plugins/<id>.js, plugins/<id>.config.json
-//!   cover-images/<ISBN>.<ext>
+//!   cover-images/<book_id>.<ext>   (the id in db.sqlite; older backups named them <ISBN>.<ext>)
 //! ```
 //!
 //! `create_backup` writes it wherever the user chose in the system save dialog (a path on
@@ -31,6 +31,12 @@
 //! matched that way, so it matches a book here that also has no ISBN and the same title
 //! (ignoring case).
 //!
+//! Covers are stored by book id (`covers`), and the ids in a backup are the backup's own. A full
+//! replace keeps them. A merge gives new books new ids, so each cover follows its book to
+//! whatever id it got (`files::cover_targets`); the cover of a book the merge left alone is
+//! ignored. Backups made by versions that named covers after the ISBN are still read: those covers
+//! are matched to their books by ISBN.
+//!
 //! Layout: `names` (entry / ISBN / file-name rules), `archive` (the zip, unpacking, where files
 //! are saved), `db` (reading the backup database, replace and merge), `files` (covers and
 //! plugin files), `tests`. This file has the two commands and the shared types.
@@ -43,7 +49,7 @@
 //! import is a single transaction, so a bad file changes nothing.
 
 use std::{
-  collections::HashSet,
+  collections::HashMap,
   fmt::Display,
   fs, io,
   path::PathBuf,
@@ -68,7 +74,7 @@ mod tests_compat;
 
 use archive::{Staged, fetch_source, save_to, unpack, write_archive};
 use db::{merge_db, read_backup_db, replace_db};
-use files::apply_files;
+use files::{apply_files, cover_targets};
 use names::DB_FILE;
 
 // SECTION: types
@@ -277,14 +283,16 @@ async fn import_backup(
     warnings: backup.warnings.clone(),
     ..ImportReport::default()
   };
-  let existed = match mode {
+  // backup book id -> live book id, for every book the import wrote
+  let applied: HashMap<i64, i64> = match mode {
     ImportMode::FullReplace => {
       replace_db(pool.inner(), &backup, &mut report).await?;
-      HashSet::new()
+      backup.books.iter().map(|b| (b.book_id, b.book_id)).collect()
     }
     ImportMode::AppendMerge => merge_db(pool.inner(), &backup, false, &mut report).await?,
     ImportMode::OverrideMerge => merge_db(pool.inner(), &backup, true, &mut report).await?,
   };
+  let book_covers = cover_targets(&staged, &backup.books, &applied);
 
   // files, settings, plugins
   let partial = |what: &str, e: &dyn Display| {
@@ -296,7 +304,7 @@ async fn import_backup(
   let files_data = data.clone();
   let report = tauri::async_runtime::spawn_blocking(move || -> Res<ImportReport> {
     let mut report = report;
-    apply_files(&files_data, &staged, mode, &existed, &mut report)
+    apply_files(&files_data, &staged, mode, &book_covers, &mut report)
       .map_err(|e| partial("copying covers and plugins failed", &e))?;
     Ok(report)
   })

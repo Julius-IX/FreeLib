@@ -537,13 +537,14 @@ struct IdMaps {
 
 /// Merges the backup's rows into the live database in one transaction. With `overwrite`, a book
 /// that already exists is replaced by the backup's version; without it, it's left alone.
-/// Returns the ISBNs of the books that existed before, which the cover step needs.
+/// Returns the backup's book ids mapped to the live books they were added as or written over,
+/// which the cover step needs. A book that was left alone isn't in it.
 pub(super) async fn merge_db(
   pool: &SqlitePool,
   data: &BackupData,
   overwrite: bool,
   report: &mut ImportReport,
-) -> Res<HashSet<String>> {
+) -> Res<HashMap<i64, i64>> {
   let mut tx = pool.begin().await?;
 
   let authors = merge_authors(&mut tx, data, overwrite, report).await?;
@@ -559,10 +560,10 @@ pub(super) async fn merge_db(
     categories,
     shelves,
   };
-  let existed = merge_books(&mut tx, data, &maps, overwrite, report).await?;
+  let applied = merge_books(&mut tx, data, &maps, overwrite, report).await?;
 
   tx.commit().await?;
-  Ok(existed)
+  Ok(applied)
 }
 
 /// Authors are matched by name. With `overwrite`, a matched author takes the backup's dates.
@@ -837,16 +838,17 @@ fn remember_book(index: &mut BookIndex, key: Option<String>, title: &str, id: i6
 }
 
 /// Books are matched by ISBN (or by title when neither side has one). A matched book is skipped,
-/// or with `overwrite` replaced by the backup's version. Returns the ISBNs that existed before.
+/// or with `overwrite` replaced by the backup's version. Returns the backup's book ids mapped to
+/// the live ids of the books that were added or replaced.
 async fn merge_books(
   tx: &mut Tx<'_>,
   data: &BackupData,
   maps: &IdMaps,
   overwrite: bool,
   report: &mut ImportReport,
-) -> Res<HashSet<String>> {
+) -> Res<HashMap<i64, i64>> {
   let mut index = load_book_index(tx).await?;
-  let existed: HashSet<String> = index.by_isbn.keys().cloned().collect();
+  let mut applied = HashMap::new();
 
   let authors_of = group(
     data
@@ -899,6 +901,8 @@ async fn merge_books(
       }
     };
 
+    applied.insert(b.book_id, host_id);
+
     let of = |m: &HashMap<i64, Vec<i64>>| m.get(&b.book_id).cloned().unwrap_or_default();
     let readings = readings_of
       .get(&b.book_id)
@@ -915,7 +919,7 @@ async fn merge_books(
     )
     .await?;
   }
-  Ok(existed)
+  Ok(applied)
 }
 
 /// Replaces a live book's details with the backup's and clears its authors, tags, categories, shelves
