@@ -21,7 +21,7 @@
 //!   here is left completely alone: no database info, no cover, no notes and no readings are
 //!   taken from the backup. Everything else in the backup is added.
 //! - **Override merge** ("backup priority"): like append, but a book that exists here is
-//!   overwritten by the backup's version (details, authors, tags, notes, readings and cover).
+//!   overwritten by the backup's version (details, rating, authors, tags, notes, readings and cover).
 //!
 //! Both merges also replace the settings file, add authors / series / tags / categories / shelves that are missing,
 //! and add plugin files. Merging never deletes anything: a book, cover or plugin that is only
