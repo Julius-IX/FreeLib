@@ -3,6 +3,7 @@ mod colors;
 mod covers;
 mod database;
 mod filter;
+mod import;
 pub mod models;
 mod plugins;
 mod settings;
