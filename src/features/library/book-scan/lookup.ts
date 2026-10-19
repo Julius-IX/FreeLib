@@ -15,7 +15,7 @@ import { isValidIsbn, normIsbn, normTag } from "../book-form/inputs";
 export class LookupError extends Error { }
 
 /** The plugins' book properties -> the form's draft. Authors, tags and series arrive as names. */
-function toDraft(info: BookInfo, isbn: string): BookDraft {
+export function toDraft(info: BookInfo, isbn: string): BookDraft {
   return {
     title: info.title ?? undefined,
     isbn, // always the code that was scanned, whatever the plugins say
