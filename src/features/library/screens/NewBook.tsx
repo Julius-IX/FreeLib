@@ -1,14 +1,16 @@
 import { useLocation, useNavigate, useOutlet } from "react-router-dom";
-import { Alert, Box, Button, IconButton, TextField } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, IconButton, TextField, Typography } from "@mui/material";
 import OptionalModal from "@/modal/OptionalModal";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useEffect, useState } from "react";
+import TravelExploreIcon from "@mui/icons-material/TravelExplore";
+import { useEffect, useRef, useState } from "react";
 import { isMobile } from "@/util/misc";
 import { withTimeout } from "@/util/async";
 import { commands } from "@/lib/commands";
 import type { Book, BookInput, Category } from "@/lib/types";
 import { notify } from "@/notifications/notify";
 import { COVER_SEGMENT, CoverPreviewCard, type CoverCtx } from "./CoverPreview";
+import { lookupBook } from "../book-scan/lookup";
 import { CategoryField } from "../book-form/CategoryField";
 import { ChoicesField, loadAuthors, loadTags } from "../book-form/ChoicesField";
 import { CoverField } from "../book-form/CoverField";
@@ -16,6 +18,7 @@ import { DateField } from "../book-form/DateField";
 import { SeriesField } from "../book-form/SeriesField";
 import { toChoice, toChoices } from "../book-form/choice";
 import { emptyToNull, isValidIsbn, noSpinners, normTag, normalizeDate, numOrNull } from "../book-form/inputs";
+import { mergeLookup } from "../book-form/mergeLookup";
 import { defaultTagTypeId, findBookByIsbn, removeCover, saveNew } from "../book-form/persistence";
 import type { BookDraft, BookFields, Choice } from "../book-form/types";
 import { bumpLibrary } from "../libraryEvents";
@@ -90,6 +93,43 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const publishDate = normalizeDate(dateText); // undefined = not a valid date
   const dateInvalid = publishDate === undefined;
   const canCreate = fields.title.trim() !== "" && !isbnInvalid && !dateInvalid && !saving && !(editing && existingBook);
+
+  // Re-run the lookup plugins for the typed ISBN and fill in what is still empty. The merge reads
+  // the form as it is when the answer arrives (not when the button was pressed), so whatever was
+  // typed in the meantime is kept.
+  const [lookingUp, setLookingUp] = useState(false);
+  const latest = useRef({ fields, authors, tags, series, cover, dateText });
+  latest.current = { fields, authors, tags, series, cover, dateText };
+
+  const handleLookup = async () => {
+    const isbn = fields.isbn;
+    if (!isbn || isbnInvalid || lookingUp) return;
+    setLookingUp(true);
+    try {
+      const { draft, problem } = await lookupBook(isbn);
+      if (problem) {
+        notify(problem, { severity: "error", duration: 8000 });
+        return;
+      }
+      const merged = mergeLookup(latest.current, draft);
+      if (Object.keys(merged.fields).length > 0) patch(merged.fields);
+      if (merged.authors) setAuthors(merged.authors);
+      if (merged.tags) setTags(merged.tags);
+      if (merged.series) setSeries(merged.series);
+      if (merged.cover !== undefined) setCover(merged.cover);
+      if (merged.dateText !== undefined) setDateText(merged.dateText);
+      notify(
+        merged.filled.length > 0
+          ? `Filled in: ${merged.filled.join(", ")}`
+          : "Found the book, but there was nothing new to add",
+        { severity: merged.filled.length > 0 ? "success" : "info" }
+      );
+    } catch (e) {
+      notify(e instanceof Error && e.message ? e.message : `Couldn't look the book up: ${String(e)}`, { severity: "error" });
+    } finally {
+      setLookingUp(false);
+    }
+  };
 
   const handleCreate = async () => {
     const isbn = fields.isbn;
@@ -265,6 +305,20 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
           onChange={(e) => patch({ pageCount: numOrNull(e.target.value) })}
           slotProps={{ htmlInput: { min: 0, step: 1 } }}
         />
+      </Box>
+
+      <Box>
+        <Button
+          variant="outlined"
+          startIcon={lookingUp ? <CircularProgress size={18} /> : <TravelExploreIcon />}
+          disabled={isbnInvalid || lookingUp || saving}
+          onClick={handleLookup}
+        >
+          {lookingUp ? "Looking up…" : "Look up details"}
+        </Button>
+        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+          Asks the lookup plugins about this ISBN and fills in anything that's still empty.
+        </Typography>
       </Box>
 
       {existingBook && editing && (

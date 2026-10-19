@@ -14,6 +14,7 @@ Add a book by scanning its barcode and the details are filled in automatically, 
 - Search, filters, and sorting 
 - Covers stored locally
 - Backup and restore
+- Import your library from Goodreads (CSV export)
 - Light and dark themes
 
 Built with Tauri, React and Rust. Focused on mobile but works on desktop too.

@@ -131,7 +131,22 @@ export type CreatedBackup = {
 
 export type CssColor = "aliceblue" | "antiquewhite" | "aqua" | "aquamarine" | "azure" | "beige" | "bisque" | "black" | "blanchedalmond" | "blue" | "blueviolet" | "brown" | "burlywood" | "cadetblue" | "chartreuse" | "chocolate" | "coral" | "cornflowerblue" | "cornsilk" | "crimson" | "cyan" | "darkblue" | "darkcyan" | "darkgoldenrod" | "darkgray" | "darkgrey" | "darkgreen" | "darkkhaki" | "darkmagenta" | "darkolivegreen" | "darkorange" | "darkorchid" | "darkred" | "darksalmon" | "darkseagreen" | "darkslateblue" | "darkslategray" | "darkslategrey" | "darkturquoise" | "darkviolet" | "deeppink" | "deepskyblue" | "dimgray" | "dimgrey" | "dodgerblue" | "firebrick" | "floralwhite" | "forestgreen" | "fuchsia" | "gainsboro" | "ghostwhite" | "gold" | "goldenrod" | "gray" | "grey" | "green" | "greenyellow" | "honeydew" | "hotpink" | "indianred" | "indigo" | "ivory" | "khaki" | "lavender" | "lavenderblush" | "lawngreen" | "lemonchiffon" | "lightblue" | "lightcoral" | "lightcyan" | "lightgoldenrodyellow" | "lightgray" | "lightgrey" | "lightgreen" | "lightpink" | "lightsalmon" | "lightseagreen" | "lightskyblue" | "lightslategray" | "lightslategrey" | "lightsteelblue" | "lightyellow" | "lime" | "limegreen" | "linen" | "magenta" | "maroon" | "mediumaquamarine" | "mediumblue" | "mediumorchid" | "mediumpurple" | "mediumseagreen" | "mediumslateblue" | "mediumspringgreen" | "mediumturquoise" | "mediumvioletred" | "midnightblue" | "mintcream" | "mistyrose" | "moccasin" | "navajowhite" | "navy" | "oldlace" | "olive" | "olivedrab" | "orange" | "orangered" | "orchid" | "palegoldenrod" | "palegreen" | "paleturquoise" | "palevioletred" | "papayawhip" | "peachpuff" | "peru" | "pink" | "plum" | "powderblue" | "purple" | "rebeccapurple" | "red" | "rosybrown" | "royalblue" | "saddlebrown" | "salmon" | "sandybrown" | "seagreen" | "seashell" | "sienna" | "silver" | "skyblue" | "slateblue" | "slategray" | "slategrey" | "snow" | "springgreen" | "steelblue" | "tan" | "teal" | "thistle" | "tomato" | "turquoise" | "violet" | "wheat" | "white" | "whitesmoke" | "yellow" | "yellowgreen";
 
+export type ImportFormat = {
+  id: string;
+  name: string;
+  description: string;
+  extensions: string[];
+  options: ImportOptionSpec[];
+}
+
 export type ImportMode = "fullReplace" | "appendMerge" | "overrideMerge";
+
+export type ImportOptionSpec = {
+  key: string;
+  label: string;
+  description: string;
+  defaultValue: boolean;
+}
 
 export type ImportReport = {
   booksAdded: number;
@@ -150,6 +165,24 @@ export type ImportReport = {
 export type InvalidField = {
   field: string;
   reason: string;
+}
+
+export type LibraryImportOptions = {
+  estimateDates: boolean;
+  formatOptions: Record<string, boolean>;
+}
+
+export type LibraryImportReport = {
+  imported: number;
+  skippedDuplicates: number;
+  failed: number;
+  authorsCreated: number;
+  seriesCreated: number;
+  shelvesCreated: number;
+  readingsCreated: number;
+  estimatedDates: number;
+  messages: string[];
+  importedBookIds: number[];
 }
 
 export type LookupOutcome = {
@@ -231,4 +264,3 @@ export type TagInput = {
 export type TagType = {
   tagTypeId: number;
   name: string;
-}
