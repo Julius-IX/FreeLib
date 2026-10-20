@@ -10,10 +10,13 @@ use sqlx::{
   sqlite::{SqliteConnectOptions, SqlitePoolOptions},
 };
 
-use super::{BookFilter, BookSort, query_books};
+use super::{BookFilter, BookSort, Outside, query_books};
 use cases::CASES;
 
 const SEED: &str = include_str!("seed.sql");
+
+/// The books that have a cover image in these tests (covers are files, not part of the seed).
+const COVERED: [i64; 3] = [1, 3, 9];
 
 fn pool() -> SqlitePool {
   tauri::async_runtime::block_on(async {
@@ -39,7 +42,10 @@ fn ids(pool: &SqlitePool, filter: &str, sort: &str) -> Vec<i64> {
   } else {
     serde_json::from_str(sort).expect("a valid BookSort")
   };
-  tauri::async_runtime::block_on(query_books(pool, &filter, sort))
+  let outside = Outside {
+    cover_ids: COVERED.to_vec(),
+  };
+  tauri::async_runtime::block_on(query_books(pool, &filter, sort, &outside))
     .expect("the query runs")
     .iter()
     .map(|b| b.book_id)
@@ -71,4 +77,33 @@ fn case_names_are_unique() {
   let before = names.len();
   names.dedup();
   assert_eq!(before, names.len(), "two cases share a name");
+}
+
+#[test]
+fn text_that_is_only_whitespace_counts_as_missing() {
+  let pool = pool();
+  tauri::async_runtime::block_on(async {
+    // book 7 has nothing filled in; give it text that looks empty
+    sqlx::query("UPDATE book SET isbn = '  ', blurb = char(10, 9, 32), notes = char(13, 10) WHERE book_id = 7")
+      .execute(&pool)
+      .await
+      .unwrap();
+  });
+  for field in ["isbn", "blurb", "notes"] {
+    let got = ids(&pool, &format!(r#"{{"has":["{field}"]}}"#), "");
+    assert!(
+      !got.contains(&7),
+      "{field}: whitespace only should count as missing, got {got:?}"
+    );
+  }
+}
+
+#[test]
+fn a_cover_filter_without_any_covers_matches_nothing() {
+  let pool = pool();
+  let filter: BookFilter = serde_json::from_str(r#"{"has":["cover"]}"#).unwrap();
+  let none = Outside::default();
+  let got = tauri::async_runtime::block_on(query_books(&pool, &filter, BookSort::default(), &none))
+    .unwrap();
+  assert!(got.is_empty());
 }
