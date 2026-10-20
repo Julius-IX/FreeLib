@@ -100,6 +100,16 @@ pub enum ReadStatus {
 ///   series, `author` / `tag` / `category` / `shelf` at least one of them, and `cover` a stored
 ///   cover image (a file, so which books have one is looked up outside the database).
 ///
+/// **Leaving books out**
+/// - `exclude`: filters whose matches are left out. Each entry is a whole `BookFilter`, so
+///   anything above works in it (`has`, ranges, text, even another `exclude`), and a book is left
+///   out when it matches the entry. `[{ tag: "fantasy" }, { has: ["cover"] }]` leaves out the
+///   fantasy books AND the books with a cover: the entries are independent. Several conditions
+///   inside ONE entry must all match to leave a book out (`{ tag: "fantasy", has: ["cover"] }`
+///   leaves out only fantasy books that have a cover). A book that has no value for a field
+///   doesn't match a condition on it, so it stays: "not published in 2024" keeps the books with
+///   no publish date. An entry with nothing usable in it leaves nothing out.
+///
 /// **Dates** (every `*_from` / `*_to` field)
 ///
 /// Bounds are inclusive and forgiving about format, see [`parse_date`]:
@@ -160,6 +170,8 @@ pub struct BookFilter {
   pub finished_to: Option<String>,
 
   pub has: Vec<BookField>,
+
+  pub exclude: Vec<BookFilter>,
 }
 
 /// Something a book can have or lack, for `BookFilter::has`.
@@ -191,7 +203,7 @@ pub(crate) struct Outside {
 impl BookFilter {
   /// Whether answering this filter needs to know which books have a cover.
   fn asks_about_covers(&self) -> bool {
-    self.has.contains(&BookField::Cover)
+    self.has.contains(&BookField::Cover) || self.exclude.iter().any(BookFilter::asks_about_covers)
   }
 }
 // SECTION: query
