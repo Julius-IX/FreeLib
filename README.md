@@ -12,6 +12,7 @@ Add a book by scanning its barcode and the details are filled in automatically, 
 - Authors, tags, series, categories, and shelves
 - Notes per book
 - Search, filters, and sorting 
+- Stats tab: pick what to measure and how to group it, get a chart, no query language needed
 - Select many books at once to update, tag, categorize, shelve or delete them
 - Covers stored locally
 - Backup and restore
