@@ -74,6 +74,7 @@ export type BookFilter = {
   finishedFrom: string | null;
   finishedTo: string | null;
   has: BookField[];
+  exclude: BookFilter[];
 }
 
 export type BookInfo = {
