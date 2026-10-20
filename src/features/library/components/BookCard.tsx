@@ -1,54 +1,162 @@
-import { Card, CardActionArea, Box, Tooltip, Typography } from "@mui/material";
+import type { Theme } from "@mui/material";
+import type { SystemStyleObject } from "@mui/system";
 import { Book, Category } from "@/lib/types";
 
-import placeholderCover from "@/assets/placeholder-cover.png";
+// Small, pre-cropped 2:3 copy: the full-size placeholder is 1920x1080 and was being rescaled into
+// every card on every frame. (The book page still uses the full-size one.)
+import placeholderCover from "@/assets/placeholder-cover-small.png";
 import { useCover } from "../useCover";
 import { commands } from "@/lib/commands";
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useLibraryRevision } from "../libraryEvents";
+import { isMobile } from "@/util/misc";
+import { isScrolling, onScrollIdle } from "../scrollGate";
 
 /**
- * Saved cover or the placeholder. `useCover` hands back a cover that's already decoded (and cached
- * across remounts), so the swap from placeholder never paints an empty frame. The background
- * is a backstop so even a stray unpainted frame shows a neutral tile, not white.
+ * A card is plain DOM + class names on purpose. The grid mounts a whole row of them every time you
+ * scroll past a row boundary (6-10 cards on desktop), and a card built from MUI Card /
+ * CardActionArea / Typography / Box made every mount run emotion's style serialisation for each
+ * piece. The styles now live once, on the grid (`bookCardSx`), and cards just carry class names.
  */
-function BookCover({ bookId, title }: { bookId: number; title: string }) {
-  const { url } = useCover(bookId);
-  return (
-    <Box sx={{ width: "100%", height: "100%", bgcolor: "action.hover" }}>
-      <Box
-        component="img"
-        src={url ?? placeholderCover}
-        alt={title}
-        decoding="sync"
-        sx={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
-      />
-    </Box>
-  );
-}
+
+/** Styles for every `.bk-*` element below. Apply to the grid element that contains the cards. */
+export const bookCardSx = (theme: Theme): SystemStyleObject<Theme> => ({
+  "& .bk": {
+    position: "relative",
+    minWidth: 0,
+    overflow: "hidden",
+    borderRadius: `${theme.shape.borderRadius}px`,
+    boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+    backgroundColor: theme.palette.action.hover,
+    contain: "layout paint style", // a card repainting never invalidates its neighbours
+  },
+  "& .bk-btn": {
+    position: "absolute",
+    inset: 0,
+    display: "block",
+    width: "100%",
+    height: "100%",
+    margin: 0,
+    padding: 0,
+    border: 0,
+    background: "none",
+    color: "inherit",
+    font: "inherit",
+    textAlign: "left",
+    cursor: "pointer",
+    WebkitTapHighlightColor: "transparent",
+  },
+  // hover / keyboard-focus highlight, drawn by a pseudo-element so no extra node is mounted
+  "& .bk-btn::after": {
+    content: '""',
+    position: "absolute",
+    inset: 0,
+    pointerEvents: "none",
+    backgroundColor: "currentColor",
+    opacity: 0,
+  },
+  "& .bk-btn:hover::after": { opacity: theme.palette.action.hoverOpacity },
+  "& .bk-btn:focus-visible::after": { opacity: theme.palette.action.focusOpacity },
+  "& .bk-btn:focus-visible": {
+    outline: `2px solid ${theme.palette.primary.main}`,
+    outlineOffset: -2,
+  },
+  "& .bk-img": {
+    display: "block",
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  },
+  "& .bk-fade": {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: "45%",
+    pointerEvents: "none",
+    background:
+      "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.75) 35%, rgba(0,0,0,0) 100%)",
+  },
+  "& .bk-foot": { position: "absolute", left: 0, right: 0, bottom: 0, padding: theme.spacing(1) },
+  "& .bk-title": {
+    ...theme.typography.caption,
+    color: "#fff",
+    fontWeight: 600,
+    lineHeight: 1.25,
+    display: "-webkit-box",
+    WebkitLineClamp: 2,
+    WebkitBoxOrient: "vertical",
+    overflow: "hidden",
+  },
+  "& .bk-cats": {
+    position: "absolute",
+    top: 2,
+    left: 6,
+    right: 6,
+    zIndex: 1,
+    display: "flex",
+    flexWrap: "nowrap",
+    gap: "3px",
+    pointerEvents: "none",
+  },
+  // taller than the bar so it's easy to hover; the container ignores the mouse, this doesn't
+  "& .bk-cat": {
+    flex: "0 1 28px",
+    minWidth: 4,
+    height: 16,
+    display: "flex",
+    alignItems: "center",
+    pointerEvents: "auto",
+  },
+  "& .bk-cat-bar": {
+    width: "100%",
+    height: 8,
+    borderRadius: "2.5px",
+    // keeps pale colours visible on a light cover
+    boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
+  },
+});
+
+/** Categories per book, so scrolling back over a row doesn't re-query them. */
+const categoryCache = new Map<number, { rev: number; categories: Category[] }>();
 
 /**
  * Trello-style colour labels over the top of the cover: one small bar per category, colour only
- * (hover one for its name; the full chips are on the book's page). Always ONE line: the bars share the width and shrink
- * (down to a thin sliver) rather than wrapping, so a book with many categories never covers
- * more of the cover than one with a few.
+ * (hover one for its name; the full chips are on the book's page). Always ONE line: the bars share
+ * the width and shrink (down to a thin sliver) rather than wrapping, so a book with many
+ * categories never covers more of the cover than one with a few.
  */
 function CategoryChips({ bookId }: { bookId: number }) {
-  const [categories, setCategories] = useState<Category[]>([]);
   // Re-read after a book or a category was saved (a recoloured category changes every card).
   const revision = useLibraryRevision();
+  const cached = categoryCache.get(bookId);
+  const [categories, setCategories] = useState<Category[]>(
+    cached?.rev === revision ? cached.categories : [],
+  );
 
   useEffect(() => {
+    const hit = categoryCache.get(bookId);
+    if (hit?.rev === revision) {
+      setCategories(hit.categories);
+      return;
+    }
     let cancelled = false;
 
-    commands.db
-      .getAllCategories({ bookId })
-      .then((result) => {
-        if (!cancelled) setCategories(result);
-      })
-      .catch((err) => {
-        console.error("Failed to load categories", err);
-      });
+    const load = () => {
+      if (cancelled) return;
+      commands.db
+        .getAllCategories({ bookId })
+        .then((result) => {
+          categoryCache.set(bookId, { rev: revision, categories: result });
+          if (!cancelled) setCategories(result);
+        })
+        .catch((err) => {
+          console.error("Failed to load categories", err);
+        });
+    };
+    // not while the grid is moving; fetched once the scroll settles
+    if (isScrolling()) onScrollIdle(load);
+    else load();
 
     return () => {
       cancelled = true;
@@ -58,97 +166,38 @@ function CategoryChips({ bookId }: { bookId: number }) {
   if (categories.length === 0) return null;
 
   return (
-    <Box
-      aria-label={`Categories: ${categories.map((c) => c.name).join(", ")}`}
-      sx={{
-        position: "absolute",
-        top: 2,
-        left: 6,
-        right: 6,
-        zIndex: 1,
-        display: "flex",
-        flexWrap: "nowrap",
-        gap: "3px",
-        pointerEvents: "none",
-      }}
-    >
+    <div className="bk-cats" aria-label={`Categories: ${categories.map((c) => c.name).join(", ")}`}>
       {categories.map((c) => (
-        <Tooltip key={c.categoryId} title={c.name} placement="bottom" enterDelay={100} arrow>
-          {/* taller than the bar so it's easy to hover; the container ignores the mouse, this doesn't */}
-          <Box
-            sx={{
-              flex: "0 1 28px",
-              minWidth: 4,
-              height: 16,
-              display: "flex",
-              alignItems: "center",
-              pointerEvents: "auto",
-            }}
-          >
-            <Box
-              sx={{
-                width: "100%",
-                height: 8,
-                borderRadius: "2.5px",
-                bgcolor: c.color,
-                // keeps pale colours visible on a light cover
-                boxShadow: "0 0 0 1px rgba(0,0,0,0.35)",
-              }}
-            />
-          </Box>
-        </Tooltip>
+        <div key={c.categoryId} className="bk-cat" title={c.name}>
+          <div className="bk-cat-bar" style={{ backgroundColor: c.color }} />
+        </div>
       ))}
-    </Box>
+    </div>
   );
 }
 
-export default function BookCard({
+function BookCard({
   book,
   onClick,
 }: {
   book: Book;
   onClick?: (book: Book) => void;
 }) {
+  // Desktop webviews rescale full-size covers on every scroll frame, so the grid gets thumbnails.
+  const { url } = useCover(book.bookId, { thumb: !isMobile() });
+
   return (
-    <Card sx={{ aspectRatio: "2 / 3", position: "relative", minWidth: 0 }}>
-      <CardActionArea
-        onClick={() => onClick?.(book)}
-        sx={{ position: "absolute", inset: 0 }}
-      >
-        <BookCover bookId={book.bookId} title={book.title} />
+    <div className="bk">
+      <button type="button" className="bk-btn" onClick={() => onClick?.(book)}>
+        <img className="bk-img" src={url ?? placeholderCover} alt={book.title} decoding="async" />
         <CategoryChips bookId={book.bookId} />
-
-        <Box
-          sx={{
-            position: "absolute",
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: "45%",
-            pointerEvents: "none",
-            background:
-              "linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.75) 35%, rgba(0,0,0,0) 100%)",
-          }}
-        />
-
-        <Box sx={{ position: "absolute", left: 0, right: 0, bottom: 0, p: 1 }}>
-          <Typography
-            variant="caption"
-            sx={{
-              color: "#fff",
-              fontWeight: 600,
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical",
-              overflow: "hidden",
-              lineHeight: 1.25,
-              textShadow: "0 1px 3px rgba(0,0,0,0.6)",
-            }}
-          >
-            {book.title}
-          </Typography>
-        </Box>
-      </CardActionArea>
-    </Card>
+        <div className="bk-fade" />
+        <div className="bk-foot">
+          <span className="bk-title">{book.title}</span>
+        </div>
+      </button>
+    </div>
   );
 }
+
+export default memo(BookCard);
