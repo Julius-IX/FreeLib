@@ -34,6 +34,8 @@ export type BookCategory = {
   categoryId: number;
 }
 
+export type BookField = "isbn" | "cover" | "rating" | "blurb" | "notes" | "published" | "pages" | "series" | "author" | "tag" | "category" | "shelf";
+
 export type BookFilter = {
   text: string | null;
   title: string | null;
@@ -58,6 +60,10 @@ export type BookFilter = {
   publishTo: string | null;
   pageCountMin: number | null;
   pageCountMax: number | null;
+  ratingMin: number | null;
+  ratingMax: number | null;
+  ratingMinExclusive: boolean;
+  ratingMaxExclusive: boolean;
   authorBirthFrom: string | null;
   authorBirthTo: string | null;
   authorDeathFrom: string | null;
@@ -67,6 +73,8 @@ export type BookFilter = {
   startedTo: string | null;
   finishedFrom: string | null;
   finishedTo: string | null;
+  has: BookField[];
+  exclude: BookFilter[];
 }
 
 export type BookInfo = {
@@ -264,3 +272,4 @@ export type TagInput = {
 export type TagType = {
   tagTypeId: number;
   name: string;
+}

@@ -20,7 +20,7 @@ pub(super) fn clear_dir(dir: &Path) -> io::Result<()> {
 /// Which live book each cover in the backup belongs to: `(live book id, file name in the backup)`.
 ///
 /// `applied` maps the ids of the backup's books to the live books they were written to (see
-/// `db::merge_db`; for a full replace the ids are kept, so it's the identity). A book that isn't in
+/// `db::merge_db`. For a full replace the ids are kept, so it's the identity). A book that isn't in
 /// it was left alone, so its cover is too. Covers that match no book are dropped: a cover saved
 /// under an id nobody has would otherwise show up on whichever book gets that id next.
 ///

@@ -16,7 +16,7 @@ type Props = {
   size?: number;
   /**
    * Makes it tappable: the left half of an icon is half an icon, the right half the whole icon,
-   * and tapping the rating you already have clears it. Leave it out for a plain picture.
+   * and tapping the current rating clears it. Omitted, the rating renders as a plain picture.
    */
   onChange?: (value: number) => void;
 };
@@ -28,7 +28,7 @@ export function RatingIcons({ value, style, size = 28, onChange }: Props) {
   const color = themeColor ? "primary.main" : (styleColor ?? "primary.main");
   const EmptyShape = Empty ?? Icon;
   const ref = useRef<HTMLDivElement>(null);
-  // what a mouse would pick right now; shown instead of `value` while hovering
+  // what a mouse would pick right now, shown instead of `value` while hovering
   const [hover, setHover] = useState<number | null>(null);
   const shown = hover ?? value;
   const interactive = !!onChange;

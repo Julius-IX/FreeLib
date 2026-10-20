@@ -31,7 +31,7 @@ export function PluginList({
   const [removeBusy, setRemoveBusy] = useState(false);
 
   const toggle = async (plugin: PluginInfo, enabled: boolean) => {
-    // flip it right away; put the list back the way the backend has it if that fails
+    // flip it right away, put the list back the way the backend has it if that fails
     setPlugins((list) => list?.map((p) => (p.id === plugin.id ? { ...p, enabled } : p)) ?? null);
     try {
       await commands.plugins.setPluginEnabled({ id: plugin.id, enabled });

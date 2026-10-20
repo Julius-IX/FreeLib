@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 /// "What does this Rust type look like on the TS side?"
 ///
-/// Derive this for custom types (`#[derive(TsType)]`); it's implemented here
+/// Derive this for custom types (`#[derive(TsType)]`). It's implemented here
 /// for std types, so a command argument whose type has no impl is a compile error
 /// rather than a silently wrong `.ts` file.
 pub trait TsType {
@@ -29,7 +29,7 @@ macro_rules! prim {
 }
 prim!("string" => String, str, char, Path, PathBuf);
 prim!("boolean" => bool);
-// NOTE: 64/128-bit ints exceed JS's 2^53 safe range; Tauri sends them as plain numbers anyway.
+// NOTE: 64/128-bit ints exceed JS's 2^53 safe range. Tauri sends them as plain numbers anyway.
 prim!("number" => i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64);
 prim!("void" => ());
 prim!("unknown" => serde_json::Value);

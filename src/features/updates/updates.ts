@@ -8,7 +8,7 @@ import { REPO_URL } from "@/util/misc";
  * Update checking: asks GitHub for the repo's releases, and compares it with the running version.
  *
  * "Don't show again" is stored as the version it was ticked for. A newer release is a
- * different version, so it is shown again; the toggle resets itself with no extra bookkeeping.
+ * different version, so it is shown again. The toggle resets itself with no extra bookkeeping.
  */
 
 const CHECK_ON_STARTUP_KEY = "updates.checkOnStartup";

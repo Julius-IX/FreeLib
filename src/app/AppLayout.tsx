@@ -52,6 +52,7 @@ export default function AppLayout() {
   const goTo = (tab: Tab) => {
     if (tab.id !== activeId) return setActiveId(tab.id);   // switch: the tab keeps its stack
     // tapping the active tab: reset it to its root
+    tab.onReset?.();
     stacks[tab.id].router.dispose();
     setStacks((s) => ({ ...s, [tab.id]: { router: makeRouter(tab), gen: s[tab.id].gen + 1 } }));
   };

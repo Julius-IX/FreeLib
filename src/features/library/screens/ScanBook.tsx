@@ -138,7 +138,7 @@ function NativeScan() {
     []
   );
 
-  // StrictMode runs effects twice in dev; the scanner must only be opened once.
+  // StrictMode runs effects twice in dev. The scanner must only be opened once.
   useOnce(() => {
     (async () => {
       const outcome = await scanNative();

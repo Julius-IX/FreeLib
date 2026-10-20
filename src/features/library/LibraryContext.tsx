@@ -9,7 +9,7 @@ import {
 } from "react";
 import { commands } from "@/lib/commands";
 import type { Book, BookFilter, BookSort } from "@/lib/types";
-import { emptyFilter } from "./searchQuery";
+import { libraryViewState } from "./libraryViewState";
 import { notify } from "@/notifications/notify";
 import { useLibraryRevision } from "./libraryEvents";
 import { useLibrarySort } from "./librarySort";
@@ -40,7 +40,11 @@ type LibraryState = {
 const LibraryContext = createContext<LibraryState | null>(null);
 
 export function LibraryProvider({ children }: { children: ReactNode }) {
-  const [filter, setFilter] = useState<BookFilter>(emptyFilter);
+  const [filter, setFilterState] = useState<BookFilter>(() => libraryViewState.filter);
+  const setFilter = useCallback((f: BookFilter) => {
+    libraryViewState.filter = f;
+    setFilterState(f);
+  }, []);
   const [sort, setSort] = useLibrarySort();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
@@ -69,8 +73,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     };
   }, [nonce, revision]);
 
-  // Don't query before we know whether there are tabs, or the first paint would show the whole
-  // library and then jump to one shelf.
+  // Querying waits until it is known whether there are tabs, otherwise the first paint shows the
+  // whole library and then jumps to one shelf.
   const ready = shelvesLoaded && unshelvedCount !== null;
 
   const shelfTabs = useMemo<ShelfTabInfo[]>(() => {
@@ -116,7 +120,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({ books, loading, filter, setFilter, sort, setSort, reload, shelfTabs, activeShelf, selectShelf }),
-    [books, loading, filter, sort, setSort, reload, shelfTabs, activeShelf, selectShelf],
+    [books, loading, filter, setFilter, sort, setSort, reload, shelfTabs, activeShelf, selectShelf],
   );
 
   return <LibraryContext.Provider value={value}>{children}</LibraryContext.Provider>;

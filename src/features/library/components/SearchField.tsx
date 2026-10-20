@@ -2,15 +2,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { InputAdornment, TextField } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import type { BookFilter } from "@/lib/types";
-import { emptyFilter, parseQuery } from "../searchQuery";
+import { parseQuery } from "../search";
+import { libraryViewState } from "../libraryViewState";
 import { useLibrary } from "../LibraryContext";
 
 export default function SearchField({ autoFocus }: { autoFocus?: boolean }) {
   const { setFilter } = useLibrary();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(() => libraryViewState.searchText);
 
   // Skip no-op emits (trailing spaces, initial empty state).
-  const last = useRef(JSON.stringify(emptyFilter()));
+  const last = useRef(JSON.stringify(libraryViewState.filter));
   const emit = useCallback(
     (f: BookFilter) => {
       const key = JSON.stringify(f);
@@ -26,15 +27,15 @@ export default function SearchField({ autoFocus }: { autoFocus?: boolean }) {
     return () => clearTimeout(id);
   }, [text, emit]);
 
-  // Unmount (mobile back arrow) -> clear the filter.
-  useEffect(() => () => emit(emptyFilter()), [emit]);
-
   return (
     <TextField
       autoFocus={autoFocus}
       value={text}
-      onChange={(e) => setText(e.target.value)}
-      placeholder="tag:fantasy  author:'Le Guin'"
+      onChange={(e) => {
+        libraryViewState.searchText = e.target.value;
+        setText(e.target.value);
+      }}
+      placeholder="tag:fantasy  author:'Le Guin' has:cover !rating:>3"
       variant="standard"
       sx={{ flex: 1 }}
       slotProps={{

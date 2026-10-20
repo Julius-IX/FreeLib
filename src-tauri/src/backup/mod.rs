@@ -7,7 +7,7 @@
 //!   db.sqlite              a consistent snapshot made with `VACUUM INTO`
 //!   settings.json
 //!   plugins/<id>.js, plugins/<id>.config.json
-//!   cover-images/<book_id>.<ext>   (the id in db.sqlite; older backups named them <ISBN>.<ext>)
+//!   cover-images/<book_id>.<ext>   (the id in db.sqlite, older backups named them <ISBN>.<ext>)
 //! ```
 //!
 //! `create_backup` writes it wherever the user chose in the system save dialog (a path on
@@ -33,7 +33,7 @@
 //!
 //! Covers are stored by book id (`covers`), and the ids in a backup are the backup's own. A full
 //! replace keeps them. A merge gives new books new ids, so each cover follows its book to
-//! whatever id it got (`files::cover_targets`); the cover of a book the merge left alone is
+//! whatever id it got (`files::cover_targets`). The cover of a book the merge left alone is
 //! ignored. Backups made by versions that named covers after the ISBN are still read: those covers
 //! are matched to their books by ISBN.
 //!
@@ -43,7 +43,7 @@
 //!
 //! A backup made by an older version is upgraded by the migrations before it is read. One whose
 //! database is missing optional tables or columns is read with those left empty, and each such
-//! gap comes back in `ImportReport::warnings`; a missing core table or column refuses the import.
+//! gap comes back in `ImportReport::warnings`. A missing core table or column refuses the import.
 //!
 //! The backup is unpacked and checked in a staging folder first, and the database part of an
 //! import is a single transaction, so a bad file changes nothing.
@@ -85,9 +85,9 @@ use names::DB_FILE;
 pub enum ImportMode {
   /// Delete everything, then apply the backup.
   FullReplace,
-  /// Add what's missing; books that already exist keep their current data and cover.
+  /// Add what's missing. Books that already exist keep their current data and cover.
   AppendMerge,
-  /// Add what's missing; books that already exist are overwritten by the backup's version.
+  /// Add what's missing. Books that already exist are overwritten by the backup's version.
   OverrideMerge,
 }
 
@@ -198,10 +198,9 @@ fn app_data(app: &AppHandle) -> Res<PathBuf> {
   app.path().app_data_dir().map_err(ctx("no app data folder"))
 }
 
-/// Saves everything (database, covers, plugins, settings) as one `.zip` at `destination`, which
-/// the user picked in the system save dialog: a plain path on desktop, a `content://` URI on
-/// Android. The zip is built in the app's staging folder first, then copied out, so a failure
-/// never leaves a half-written file at the destination. Returns where the file ended up.
+/// Saves everything (database, covers, plugins, settings) as one `.zip` at `destination` (a path
+/// on desktop, a `content://` URI on Android). The zip is built in a staging folder first and then
+/// copied out, so a failure never leaves a half-written file at the destination.
 #[command(backup)]
 async fn create_backup(
   app: AppHandle,

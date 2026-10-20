@@ -124,7 +124,7 @@ fn a_1_0_0_backup_is_upgraded_and_imports_without_warnings() {
     assert_eq!(data.books[0].series_position, Some(1.0));
     assert_eq!(data.notes.get(&id).map(String::as_str), Some("n"));
     assert_eq!(data.readings.len(), 1);
-    // 1.0.0 never recorded when a book was added; the upgrade stamps one
+    // 1.0.0 never recorded when a book was added, the upgrade stamps one
     assert!(!data.added_at[&id].is_empty());
     assert!(data.shelves.is_empty() && data.categories.is_empty());
 

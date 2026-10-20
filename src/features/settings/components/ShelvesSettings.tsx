@@ -19,7 +19,7 @@ import { Preference, Section } from "./Preferences";
 type NameTarget = Shelf | "new" | null;
 
 /**
- * Where shelves are made. Each shelf becomes a tab in the library; books are put on shelves
+ * Where shelves are made. Each shelf becomes a tab in the library. Books are put on shelves
  * from their own page. With no shelves the library has no tabs at all.
  */
 export function ShelvesSettings() {

@@ -13,7 +13,7 @@ const isShelfKey = (v: unknown): v is ShelfKey => v === UNSHELVED || (typeof v =
 /**
  * The tab the library was last on, saved so coming back from a book's page (which unmounts the
  * library) or restarting the app lands on the same shelf. Saved in settings.json under
- * `libraryShelf` (also listed in `KNOWN` in settings.rs). May name a shelf that no longer exists;
+ * `libraryShelf` (also listed in `KNOWN` in settings.rs). May name a shelf that no longer exists.
  * `LibraryContext` falls back to the first tab then.
  */
 export const useSavedShelfKey = () => useSetting<ShelfKey>("libraryShelf", UNSHELVED, isShelfKey);

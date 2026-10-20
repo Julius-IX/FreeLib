@@ -2,49 +2,37 @@
 //!
 //! The work is split in two so a new format only has to do the first half:
 //!
-//! 1. **Parsing** (one file per format, e.g. `goodreads`): turns the text of an export into a list
-//!    of [`ImportBook`]s, FreeLib's own neutral description of a book with its shelves, rating
-//!    and reading state. It never touches the database.
-//! 2. **Importing** (this file): takes those books and writes them. Everything runs in one
-//!    transaction with a savepoint per book: a book that fails is rolled back and reported, the
-//!    rest still import. Running the same export twice is safe, books you already have are
-//!    skipped (by ISBN, or by title + first author when the book has no ISBN).
+//! 1. **Parsing** (one file per format, e.g. `goodreads`): turns an export's text into a list of
+//!    [`ImportBook`]s, FreeLib's neutral description of a book. It never touches the database.
+//! 2. **Importing** (this file): writes those books in one transaction with a savepoint per book.
+//!    A failing book is rolled back and reported, the rest still import. Running the same export
+//!    twice is safe, existing books are skipped (by ISBN, or title + first author without one).
 //!
-//! The frontend reads the file and passes its text. It asks `list_import_formats` for what can be
-//! imported (name, how to get the file, file extensions, and any switches the format offers, so
-//! the picker and the option toggles are built from data), then calls `import_library` with the
-//! chosen format's id.
+//! The frontend asks `list_import_formats` for what can be imported (so the picker and the option
+//! toggles are built from data), reads the file and calls `import_library` with the format's id.
 //!
 //! ## What a book becomes
 //!
-//! - Title, authors, ISBN, page count: as given. A book with no usable ISBN is still imported,
-//!   just without one (`book.isbn` is nullable).
-//! - Series + position: `series` / `book.series_id` / `book.series_position`.
-//! - Shelves: FreeLib shelves (created when missing, added to the end of the tab row).
-//! - Reading state: finished books get one reading, in-progress books an open one (a reading
-//!   with no finish date counts as in progress). Formats often leave the finish date out, so
-//!   with `estimate_dates` the date the book was added is used instead. Without it a finished
-//!   book with no date gets no reading at all.
-//! - Rating: `book.rating`, 0-10 as a float, 0 = no rating. A format on another scale converts it
-//!   while parsing.
-//! - Notes: the review and private notes.
-//! - Date added: `book.added_at`, so "order by date added" keeps working. Books are inserted
-//!   oldest first so ids follow the order they were added in (the tie-break for equal dates).
+//! - Title, authors, ISBN, page count: as given. A book without a usable ISBN is imported without one.
+//! - Series + position, shelves (created when missing, added to the end of the tab row), rating
+//!   (0-10, 0 = none, converted while parsing) and notes (review + private notes).
+//! - Reading state: finished books get one reading, in-progress books an open one (no finish date
+//!   = in progress). Formats often omit the finish date, so with `estimate_dates` the date added
+//!   is used instead. Without it a finished book with no date gets no reading at all.
+//! - Date added: `book.added_at`. Books are inserted oldest first so ids follow the order they were
+//!   added in (the tie-break for equal dates).
 //!
-//! Not imported, because no export has it in a form the schema accepts: publish date (formats
-//! often give only a year, `book.publish_date` needs a full date), blurb and cover. The frontend
-//! can fill those in afterwards by running the lookup plugins on the books it is told were created
-//! (`LibraryImportReport::imported_book_ids`); that pass isn't part of the import itself.
+//! Not imported, because no export has it in a form the schema accepts: publish date (often only a
+//! year, `book.publish_date` needs a full date), blurb and cover. The frontend can fill those in by
+//! running the lookup plugins on `LibraryImportReport::imported_book_ids`.
 //!
 //! ## Adding a format
 //!
 //! 1. Create `import/<name>.rs` with a unit struct and `impl Importer for It` (see `goodreads`).
-//!    Fill in `id` / `name` / `description` / `extensions`, declare format-specific switches in
-//!    `options`, and write `parse`.
 //! 2. Add `mod <name>;` below and the struct to [`IMPORTERS`].
 //!
-//! The command, the report, duplicate detection, transactions and the frontend's format list
-//! need no change. Shared cleaning helpers (ISBNs, dates, HTML, rating scales) are in `util`.
+//! Everything else (command, report, duplicate detection, transactions, format list) needs no
+//! change. Shared cleaning helpers (ISBNs, dates, HTML, rating scales) are in `util`.
 
 use std::collections::HashMap;
 
@@ -87,7 +75,6 @@ pub(crate) struct ImportBook {
   pub page_count: Option<i64>,
   /// 0-10, 0 = no rating.
   pub rating: f64,
-  /// Plain text, no markup.
   pub review: String,
   pub private_notes: String,
   /// `YYYY-MM-DD`
@@ -107,11 +94,10 @@ pub(crate) struct ParsedImport {
 }
 
 /// A switch a format offers on top of the options every format has. The frontend renders these
-/// as toggles; the chosen values come back in `LibraryImportOptions::format_options`.
+/// as toggles. The chosen values come back in `LibraryImportOptions::format_options`.
 #[derive(Debug, Clone, Serialize, TsType)]
 #[serde(rename_all = "camelCase")]
 pub struct ImportOptionSpec {
-  /// What the value is stored under.
   pub key: String,
   pub label: String,
   pub description: String,
@@ -163,7 +149,7 @@ pub(crate) trait Importer: Sync {
   }
 
   /// Reads the file's text into books. Must not touch the database. A file that isn't this
-  /// format at all is an `Err` (nothing is imported); a row that can't be used goes in
+  /// format at all is an `Err` (nothing is imported). A row that can't be used goes in
   /// `ParsedImport::problems` and the rest carry on. The order doesn't matter, books are
   /// sorted oldest-added first afterwards.
   fn parse(&self, text: &str, options: &FormatOptions) -> Res<ParsedImport>;
@@ -217,7 +203,6 @@ pub struct LibraryImportOptions {
 #[serde(rename_all = "camelCase")]
 pub struct LibraryImportReport {
   pub imported: usize,
-  /// Books already in the library.
   pub skipped_duplicates: usize,
   /// Rows that couldn't be read or saved, see `messages`.
   pub failed: usize,
@@ -275,7 +260,7 @@ fn build_notes(review: &str, private_notes: &str) -> String {
   parts.join("\n\n")
 }
 
-/// `book.rating` only takes 0-10; a format that gets this wrong shouldn't fail the whole book.
+/// `book.rating` only takes 0-10. A format that gets this wrong shouldn't fail the whole book.
 fn sane_rating(rating: f64) -> f64 {
   if rating.is_finite() { rating.clamp(0.0, 10.0) } else { 0.0 }
 }

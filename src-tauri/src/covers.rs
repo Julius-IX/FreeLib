@@ -1,18 +1,17 @@
 //! Cover images, stored as `<app data dir>/cover-images/<book_id>.<ext>`.
 //!
-//! The book's id is the file name (it's unique and, unlike the ISBN, never changes and every book
-//! has one), so a re-save simply replaces the old cover and nothing is stored twice. The extension
-//! comes from the file's actual bytes, not from the source name, so the stored file is always a
-//! real image.
+//! The book id is the file name (unlike the ISBN it is unique, never changes and every book has
+//! one), so a re-save simply replaces the old cover. The extension comes from the file's actual
+//! bytes, not the source name, so the stored file is always a real image.
 //!
-//! Versions before this one named the file after the book's ISBN (`<ISBN>.<ext>`). Those covers are
-//! renamed to the book's id on every startup (`migrate_legacy_covers`), before the frontend asks
-//! for any of them, so nothing outside this module ever has to know about the old names. Backups
-//! made by those versions are converted while they are imported (see `backup`).
+//! Versions before this one named files after the ISBN (`<ISBN>.<ext>`). Those covers are renamed
+//! to the book id on every startup (`migrate_legacy_covers`), before the frontend asks for any, so
+//! nothing else needs to know the old names. Backups from those versions are converted on import
+//! (see `backup`).
 //!
-//! `save_cover` accepts an http(s) URL, a plain file path, a `file://` URL, or
-//! (Android gallery picks) a `content://` URI. Local reads go through
-//! tauri-plugin-fs, which is the one API that understands content URIs.
+//! `save_cover` accepts an http(s) URL, a file path, a `file://` URL or (Android gallery picks) a
+//! `content://` URI. Local reads go through tauri-plugin-fs, the one API that understands content
+//! URIs.
 
 use std::{
   collections::HashMap,
@@ -80,11 +79,9 @@ pub(crate) fn parse_book_id(stem: &str) -> Option<i64> {
   }
 }
 
-/// Only used to recognise and move covers saved under the old, ISBN-based names.
-///
-/// Strips `-` / spaces, upper-cases a trailing `x`, and accepts only 10- or
-/// 13-character ISBNs. This also guarantees the value is safe to use as a
-/// file name (no separators, no `..`).
+/// Only used to recognise covers saved under the old ISBN-based names. Strips `-` / spaces,
+/// upper-cases a trailing `x` and accepts only 10- or 13-character ISBNs, which also makes the
+/// value safe as a file name.
 fn normalize_isbn(raw: &str) -> Res<String> {
   let isbn: String = raw
     .chars()
@@ -121,6 +118,36 @@ fn existing_cover(dir: &Path, book_id: i64) -> Option<PathBuf> {
     .iter()
     .map(|ext| dir.join(format!("{book_id}.{ext}")))
     .find(|p| p.is_file())
+}
+
+/// The ids of the books that have a cover file in `dir`, sorted. Anything else in the folder (an
+/// ISBN-named leftover, a partial download, a sub-folder) is not the cover of any book.
+fn book_ids_with_cover_in(dir: &Path) -> Vec<i64> {
+  let Ok(entries) = fs::read_dir(dir) else {
+    return Vec::new();
+  };
+  let mut ids: Vec<i64> = entries
+    .filter_map(Result::ok)
+    .map(|entry| entry.path())
+    .filter(|path| path.is_file())
+    .filter_map(|path| {
+      if !EXTS.contains(&path.extension()?.to_str()?) {
+        return None;
+      }
+      parse_book_id(path.file_stem()?.to_str()?)
+    })
+    .collect();
+  ids.sort_unstable();
+  ids.dedup();
+  ids
+}
+
+/// Every book that has a stored cover, for the library filter's "has a cover". No cover folder
+/// yet (or one that can't be read) just means no covers.
+pub(crate) fn book_ids_with_cover(app: &AppHandle) -> Vec<i64> {
+  covers_dir(app)
+    .map(|dir| book_ids_with_cover_in(&dir))
+    .unwrap_or_default()
 }
 
 fn detect_ext(b: &[u8]) -> Option<&'static str> {
@@ -250,9 +277,9 @@ fn legacy_cover_files(dir: &Path) -> HashMap<String, (PathBuf, &'static str)> {
 /// Renames `legacy` covers to the id of the book that has that ISBN. `books` is `(book_id, isbn)`
 /// for every book with an ISBN. Returns how many were renamed.
 ///
-/// A cover is only ever moved onto a name that is free: if the book already has a cover under its
-/// id, the old file is left where it is rather than guessing which of the two is wanted. Covers of
-/// ISBNs no book has any more are left alone as well (they were already orphans).
+/// A cover is only moved onto a free name: if the book already has a cover under its id, the old
+/// file stays rather than guessing which of the two is wanted. Covers of ISBNs no book has any
+/// more are left alone too.
 fn adopt_legacy_covers(
   dir: &Path,
   legacy: &HashMap<String, (PathBuf, &'static str)>,
@@ -277,11 +304,9 @@ fn adopt_legacy_covers(
   moved
 }
 
-/// Moves covers saved by older versions (named after the ISBN) to the book-id names this version
-/// reads. Runs at every startup, after the database is ready and before the window loads, so it
-/// also picks up covers an older version saved after a downgrade. It costs one directory read when
-/// there is nothing to move. A failure is logged and never stops the app from starting; the
-/// covers just stay where they are.
+/// Moves covers saved by older versions (named after the ISBN) to the book-id names. Runs at every
+/// startup, after the database is ready and before the window loads, so it also picks up covers
+/// saved after a downgrade. A failure is logged and never stops the app from starting.
 pub(crate) fn migrate_legacy_covers(app: &AppHandle) {
   let Ok(base) = app.path().app_data_dir() else {
     return;
@@ -311,9 +336,8 @@ pub(crate) fn migrate_legacy_covers(app: &AppHandle) {
 
 // SECTION: commands
 
-/// Copies the image at `source` (URL, file path, or Android content URI) into
-/// the app's `cover-images/` folder as `<book_id>.<ext>`, replacing any previous
-/// cover of that book. Returns the absolute path of the stored file.
+/// Copies the image at `source` (URL, file path or Android content URI) into `cover-images/` as
+/// `<book_id>.<ext>`, replacing any previous cover. Returns the absolute path of the stored file.
 #[command(covers)]
 async fn save_cover(app: AppHandle, book_id: i64, source: String) -> Res<String> {
   let book_id = check_book_id(book_id)?;
@@ -371,6 +395,25 @@ mod tests {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
+  }
+
+  #[test]
+  fn only_files_named_after_a_book_id_count_as_covers() {
+    let dir = temp_dir("has-cover");
+    for name in [
+      "5.jpg", "7.png", "12.webp", "3.gif", // covers
+      "007.jpg", "9780441013593.jpg", "8.txt", "9.jpg.part", "10", // not covers
+    ] {
+      fs::write(dir.join(name), b"x").unwrap();
+    }
+    fs::create_dir(dir.join("11.jpg")).unwrap(); // a folder is not a cover
+    assert_eq!(book_ids_with_cover_in(&dir), vec![3, 5, 7, 12]);
+    // a book with two files (an old extension left behind) is listed once
+    fs::write(dir.join("5.png"), b"x").unwrap();
+    assert_eq!(book_ids_with_cover_in(&dir), vec![3, 5, 7, 12]);
+    // no folder at all: no covers
+    assert!(book_ids_with_cover_in(&dir.join("missing")).is_empty());
+    let _ = fs::remove_dir_all(&dir);
   }
 
   #[test]

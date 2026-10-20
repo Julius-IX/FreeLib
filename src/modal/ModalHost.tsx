@@ -6,7 +6,7 @@ import type { RouteHandle } from "@/app/tabs";
 export type ModalState = {
   /** This route is being shown as a modal (vs. a plain page). */
   isModal: boolean;
-  /** The route was popped; keep rendering it just long enough to play the exit animation. */
+  /** The route was popped. Keep rendering it just long enough to play the exit animation. */
   closing: boolean;
   /** The modal finished its exit animation, ModalHost can drop it now. */
   onExited: () => void;

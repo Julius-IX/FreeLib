@@ -141,7 +141,7 @@ impl Importer for Lines {
 #[test]
 fn any_format_can_feed_the_importer() {
   let pool = pool();
-  // listed newest first; the importer inserts oldest first whatever order the format gives
+  // listed newest first, the importer inserts oldest first whatever order the format gives
   let text = "Newer;Ann;2026-02-01\nOlder;Bob;2026-01-01\nbroken line\n";
   let report = import_with(&pool, &Lines, text, &opts());
   assert_eq!((report.imported, report.failed), (2, 1));
@@ -307,7 +307,7 @@ fn books_without_an_isbn_are_still_imported() {
   assert_eq!((report.imported, report.failed), (3, 0));
   assert_eq!(count(&pool, "SELECT COUNT(*) FROM book WHERE isbn IS NULL"), 6);
 
-  // Same title by a different author is a different book; the same one again is a repeat.
+  // Same title by a different author is a different book. The same one again is a repeat.
   assert_eq!(count(&pool, "SELECT COUNT(*) FROM book WHERE title = 'Alpha'"), 2);
   let again = import(&pool, csv, &opts());
   assert_eq!((again.imported, again.skipped_duplicates), (0, 3));
@@ -338,7 +338,7 @@ fn options_change_the_result() {
   );
   // Lord of the Mysteries brings two more "authors"
   assert_eq!(report.authors_created, 6);
-  // only Mistborn has a real date; the in-progress book still gets an (undated) open reading
+  // only Mistborn has a real date, the in-progress book still gets an (undated) open reading
   // but the finished one without a date gets none
   assert_eq!((report.readings_created, report.estimated_dates), (2, 0));
   // the options don't touch ratings

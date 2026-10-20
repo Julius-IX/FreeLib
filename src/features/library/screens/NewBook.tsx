@@ -27,17 +27,13 @@ import { bumpLibrary } from "../libraryEvents";
 /** `editBookId` switches the form to editing that book (by id, so its ISBN can change too). */
 export type NewBookState = { initial?: BookDraft; editBookId?: number };
 
-/**
- * `initial` prefills the form (all of it optional). It can be passed as a prop or, since this
- * is a route element, through router state: navigate(path, { state: { initial } }).
- * It's only read on first render; later changes to it are ignored.
- */
+/** `initial` prefills the form. Passed as a prop or through router state, read on first render only. */
 export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const routeState = location.state as NewBookState | null;
   const seed: BookDraft = initial ?? routeState?.initial ?? {};
-  const editId = routeState?.editBookId ?? null; // set = editing that book, not adding
+  const editId = routeState?.editBookId ?? null;
   const editing = editId !== null;
   const [saving, setSaving] = useState(false);
 
@@ -52,9 +48,9 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const [tags, setTags] = useState<Choice[]>(() => toChoices(seed.tags));
   const [categories, setCategories] = useState<Category[]>(() => seed.categories ?? []);
   const [series, setSeries] = useState<Choice | null>(() => (seed.series ? toChoice(seed.series) : null));
-  const [cover, setCover] = useState(seed.cover ?? ""); // link or local path
+  const [cover, setCover] = useState(seed.cover ?? "");
   const [initialCover] = useState(() => (seed.cover ?? "").trim()); // when editing: the cover already on disk
-  // what the user typed or picked; a valid prefilled date is normalized, an invalid one is kept
+  // what the user typed or picked, a valid prefilled date is normalized, an invalid one is kept
   // as is so the error shows
   const [dateText, setDateText] = useState(() => {
     const raw = seed.publishDate ?? "";
@@ -94,9 +90,8 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
   const dateInvalid = publishDate === undefined;
   const canCreate = fields.title.trim() !== "" && !isbnInvalid && !dateInvalid && !saving && !(editing && existingBook);
 
-  // Re-run the lookup plugins for the typed ISBN and fill in what is still empty. The merge reads
-  // the form as it is when the answer arrives (not when the button was pressed), so whatever was
-  // typed in the meantime is kept.
+  // Re-runs the lookup plugins for the typed ISBN and fills in what is still empty. The merge reads
+  // the form as it is when the answer arrives, so anything typed in the meantime is kept.
   const [lookingUp, setLookingUp] = useState(false);
   const latest = useRef({ fields, authors, tags, series, cover, dateText });
   latest.current = { fields, authors, tags, series, cover, dateText };
@@ -200,14 +195,14 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
     }
 
     try {
-      // An unchanged saved cover is stored under the book's id, which an edit never changes (not
-      // even when the ISBN does), so there is nothing to copy or move.
+      // An unchanged saved cover is stored under the book's id, which an edit never changes, so
+      // there is nothing to copy or move.
       const coverUnchanged = editing && hasCover && cover.trim() === initialCover;
       if (hasCover && !coverUnchanged) {
         const source = cover.trim();
         // Longer than the 30 s download timeout in Rust, so this only fires if the command
         // never answers at all. The source kind (http / content / file / path) is in the
-        // message because it tells us which Rust branch is stuck.
+        // message because it identifies which Rust branch is stuck.
         const kind = /^([a-z][a-z0-9+.-]+):/i.exec(source)?.[1] ?? "path";
         console.log(`saveCover: start, source kind=${kind}`);
         await withTimeout(commands.covers.saveCover({ bookId: saved.bookId, source }), 40_000, `saving the cover (${kind})`);
@@ -335,7 +330,6 @@ export default function NewBook({ initial }: { initial?: BookDraft } = {}) {
         value={cover}
         onChange={setCover}
         helperText="Paste a link or choose a file. It's copied and saved locally"
-        // mobile: tap to open the dedicated preview page
         onPreview={isMobile() && hasCover ? () => navigate(COVER_SEGMENT) : undefined}
       />
 

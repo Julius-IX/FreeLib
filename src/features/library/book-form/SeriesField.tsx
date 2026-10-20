@@ -19,7 +19,7 @@ export function SeriesField({ value, onChange }: { value: Choice | null; onChang
       .catch((e) => notify(`Couldn't load series: ${String(e)}`, { severity: "error" }));
   }, []);
 
-  // a draft isn't in the loaded list; add it so MUI can find the selected value
+  // a draft isn't in the loaded list, add it so MUI can find the selected value
   const options = useMemo(
     () => (value && value.id === null ? [...existing, value] : existing),
     [existing, value]

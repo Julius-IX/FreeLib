@@ -4,7 +4,7 @@
 // Google doesn't name a book's series, so series / seriesPosition are left to other plugins.
 //
 // API KEY. Requests without a key share one anonymous Google project, and its daily quota is
-// usually used up ("Quota exceeded ... quota_limit_value 0"). Use your own key (free; 1,000
+// usually used up ("Quota exceeded ... quota_limit_value 0"). A personal key avoids this (free, 1,000
 // requests a day by default):
 //   1. console.cloud.google.com -> create a project -> "APIs & Services" -> enable "Books API"
 //      -> "Credentials" -> "Create credentials" -> "API key".
@@ -84,7 +84,7 @@ plugin.register(({ isbn }, http, config) => {
   if (!item || !item.volumeInfo) throw new PluginError("not_found", `no book with ISBN ${isbn}`);
   const v = item.volumeInfo;
 
-  // thumbnails come back as http:// links; the same URL works over https
+  // thumbnails come back as http:// links, the same URL works over https
   const images = v.imageLinks || {};
   const thumb = images.extraLarge || images.large || images.medium || images.thumbnail || images.smallThumbnail;
   const cover = thumb ? thumb.replace(/^http:/, "https:").replace("&edge=curl", "") : undefined;

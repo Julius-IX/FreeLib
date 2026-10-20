@@ -1,22 +1,19 @@
 //! Book lookup plugins: small `.js` files that fill in a book's details for an ISBN.
 //!
 //! - Open Library and Google Books are built in (`src-tauri/plugins/*.js`, compiled into the app).
-//!   More can be dropped into `<app data>/plugins/`; a plugin there with a built-in's id replaces it.
-//! - Plugins run in an embedded QuickJS engine. It has no network or file access of its own.
-//! - The only thing a plugin can do is `http.get(url)`. That request is made here, with the same
-//!   reqwest client the covers use, after checking the host against the plugin's manifest (again
-//!   on every redirect).
-//! - What a plugin fills is [`BookInfo`]: one optional field per book property. A plugin fills what
-//!   it can and leaves the rest out (or `null`). Each result says what was filled / missing /
-//!   invalid / unknown.
+//!   More can be dropped into `<app data>/plugins/`. A plugin there with a built-in's id replaces it.
+//! - Plugins run in an embedded QuickJS engine with no network or file access of its own. The only
+//!   thing they can do is `http.get(url)`, made here with the same reqwest client the covers use,
+//!   after checking the host against the plugin's manifest (again on every redirect).
+//! - A plugin fills [`BookInfo`]: one optional field per book property. Each result says what was
+//!   filled / missing / invalid / unknown.
 //! - `lookup_book` runs every enabled plugin at once, merges what they return and reports the ones
 //!   that failed. It's what a scanned barcode goes through.
-//! - Plugins can be turned on and off at runtime (`set_plugin_enabled`). The off ones are kept in
-//!   the app settings (`settings::PLUGINS_DISABLED`) and survive restarts; lookups skip them.
-//! - A plugin's settings (e.g. an API key) are a JSON object saved in `<app data>/plugins/<id>.config.json`.
-//!   The Plugins tab edits it (`get_plugin_config` / `set_plugin_config`) and it's handed to the plugin
-//!   as its third argument. A plugin that doesn't use settings says `ignoreConfig: true` in its manifest
-//!   and always gets `{}`, whatever has been saved.
+//! - Plugins can be turned on and off at runtime (`set_plugin_enabled`), the off ones are kept in
+//!   the app settings (`settings::PLUGINS_DISABLED`).
+//! - A plugin's settings (e.g. an API key) are a JSON object in `<app data>/plugins/<id>.config.json`,
+//!   edited from the Plugins tab and passed as the plugin's third argument. A plugin with
+//!   `ignoreConfig: true` in its manifest always gets `{}`.
 //!
 //! Plugin API, inside the `.js` file (see `src-tauri/plugins/openlibrary.js`):
 //!
@@ -1019,7 +1016,7 @@ impl Plugins {
 
   /// Deletes an installed plugin. If it replaced a built-in one, the built-in comes back.
   fn remove(&self, id: &str) -> Result<(), Failure> {
-    // (the lock is released at the end of this statement; `not_found` takes it again)
+    // (the lock is released at the end of this statement, `not_found` takes it again)
     let found = self
       .0
       .loaded
@@ -1225,7 +1222,7 @@ impl Plugins {
 // SECTION: lookup
 
 /// Runs every enabled plugin for `isbn` at once (so it takes as long as the slowest one), then
-/// merges the answers in priority order. Plugins that fail are listed in `failures`; if all of them fail,
+/// merges the answers in priority order. Plugins that fail are listed in `failures`. If all of them fail,
 /// `data` is `None`.
 async fn lookup(plugins: &Plugins, isbn: &str) -> Res<LookupOutcome> {
   let all = plugins.list();
@@ -1354,7 +1351,7 @@ fn get_plugin_config(plugins: State<'_, Plugins>, id: String) -> Res<String> {
   Ok(plugins.read_config(&id)?)
 }
 
-/// Saves the plugin's settings. Blank removes them; anything else must be a JSON object. They take
+/// Saves the plugin's settings. Blank removes them. Anything else must be a JSON object. They take
 /// effect on the next lookup, unless the plugin's manifest says `ignoreConfig`.
 #[command(plugins)]
 fn set_plugin_config(plugins: State<'_, Plugins>, id: String, config: String) -> Res<()> {

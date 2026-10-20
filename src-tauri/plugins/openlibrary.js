@@ -1,7 +1,7 @@
 // Built-in plugin: Open Library (https://openlibrary.org). Needs no API key.
 //
 // Fills (when Open Library has them): title, publishDate, pageCount, authors, tags, series,
-// seriesPosition, blurb, cover. Everything it can't fill is left out; the app reports it as `missing`.
+// seriesPosition, blurb, cover. Everything it can't fill is left out, the app reports it as `missing`.
 const manifest = {
   id: "openlibrary",
   name: "Open Library",
@@ -58,7 +58,7 @@ function getJson(http, url) {
 }
 
 plugin.register(({ isbn }, http) => {
-  // redirects to the edition record (/books/OL...M.json); the host follows and checks them
+  // redirects to the edition record (/books/OL...M.json), the host follows and checks them
   const edition = getJson(http, `https://openlibrary.org/isbn/${isbn}.json`);
   if (!edition) throw new PluginError("not_found", `no book with ISBN ${isbn}`);
 

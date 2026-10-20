@@ -27,7 +27,7 @@ export function useBookDetails(param: string | undefined) {
       if (stale || loadedFor.current === id) return;
       setState({ status: "missing", message });
       if (notifiedFor.current !== message) {
-        notifiedFor.current = message; // StrictMode runs effects twice; one toast is enough
+        notifiedFor.current = message; // StrictMode runs effects twice. One toast is enough
         notify(toast, { severity: "error", duration: 8000 });
       }
     };

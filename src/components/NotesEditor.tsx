@@ -19,8 +19,8 @@ type Props = {
 };
 
 /**
- * One surface that fills its parent. Focused (or empty): a borderless text area you type in
- * directly. Unfocused with text: the same text rendered as markdown. Tap it to edit again.
+ * One surface that fills its parent. Focused (or empty): a borderless text area for typing
+ * directly. Unfocused with text: the same text rendered as markdown. Tapping it switches back to editing.
  * There's no edit/save mode, the parent gets every change through onChange.
  */
 export function NotesEditor({

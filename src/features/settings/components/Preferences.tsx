@@ -27,7 +27,7 @@ export function Section({ title, children }: { title: string; children: ReactNod
 }
 
 /**
- * One row. With `onClick` the whole row is tappable; otherwise it's a plain row, and
+ * One row. With `onClick` the whole row is tappable. Otherwise it's a plain row, and
  * `children` (a slider, swatches, ...) are shown under the text.
  */
 export function Preference({

@@ -3,7 +3,7 @@ import { IconButton, InputAdornment, TextField } from "@mui/material";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import { normalizeDate } from "./inputs";
 
-// Not every webview can open the native date picker; without it the field is type-only.
+// Not every webview can open the native date picker. Without it the field is type-only.
 const canShowPicker = typeof HTMLInputElement !== "undefined" && "showPicker" in HTMLInputElement.prototype;
 
 /**

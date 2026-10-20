@@ -38,6 +38,6 @@ export const readingDuration = (r: Reading): string | null => {
 /** A reading with no finish date is the one in progress. */
 export const isOpen = (r: Reading) => r.dateFinished === null;
 
-/** Newest first; undated entries last. */
+/** Newest first. Undated entries last. */
 export const sortReadings = (readings: Reading[]) =>
   [...readings].sort((a, b) => (b.dateStarted ?? "").localeCompare(a.dateStarted ?? "") || b.readingId - a.readingId);

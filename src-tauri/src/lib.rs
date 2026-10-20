@@ -60,7 +60,7 @@ fn fix_appimage_gstreamer() {
     std::env::set_var("GST_PLUGIN_PATH_1_0", &plugins);
     std::env::set_var("GST_PLUGIN_SYSTEM_PATH_1_0", &plugins);
 
-    // Only set this if gst-ptp-helper exists in your bundle; it's unused for camera capture
+    // Only set this if gst-ptp-helper exists in the bundle. It's unused for camera capture
     // std::env::set_var("GST_PTP_HELPER_1_0", plugins.join("gst-ptp-helper"));
   }
 }
@@ -76,12 +76,12 @@ fn on_startup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Whether to run through X11 (XWayland) when started in a Wayland session. Wayland-native
-/// WebKitGTK can freeze the whole UI while opening the camera; X11 doesn't. An explicit
+/// WebKitGTK can freeze the whole UI while opening the camera. X11 doesn't. An explicit
 /// `GDK_BACKEND` in the environment always wins over this.
 ///
 /// This is the "Use X11 on Wayland" setting (`settings::LINUX_X11_ON_WAYLAND`, on by default).
 /// It is read before GTK starts, i.e. before the Tauri app handle exists, so it can't go through
-/// `Settings`; `settings::peek_early` reads the settings file directly instead.
+/// `Settings`. `settings::peek_early` reads the settings file directly instead.
 #[cfg(target_os = "linux")]
 fn linux_prefer_x11(identifier: &str) -> bool {
   settings::peek_early(identifier, settings::LINUX_X11_ON_WAYLAND).unwrap_or(true)
@@ -106,7 +106,7 @@ pub fn run() {
   }
 
   // Camera freezes on native Wayland (see README, "Linux: camera requirements"). Users can opt
-  // out in Settings ("Use X11 on Wayland"; takes effect on the next start). Must happen before
+  // out in Settings ("Use X11 on Wayland", takes effect on the next start). Must happen before
   // GTK / WebKit start, so it can't wait for the Tauri app or its database.
   #[cfg(target_os = "linux")]
   if std::env::var_os("GDK_BACKEND").is_none()
@@ -131,7 +131,7 @@ pub fn run() {
     .setup(|app| on_startup(app))
     .plugin(tauri_plugin_opener::init());
 
-  // The barcode scanner only exists on mobile; desktop scans with the webcam in the webview.
+  // The barcode scanner only exists on mobile. Desktop scans with the webcam in the webview.
   #[cfg(mobile)]
   let builder = builder.plugin(tauri_plugin_barcode_scanner::init());
 
