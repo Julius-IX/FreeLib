@@ -1,6 +1,6 @@
 //! Filtering and sorting the library: the `filter_books` command.
 //!
-//! [`BookFilter`] says which books to keep, [`BookSort`] how to order them. Sections:
+//! [`BookFilter`] says which books to keep, [`BookSort`] how to order them. The pieces:
 //!
 //! - `conditions/`: one file per kind of condition. Each turns the filter fields it owns into SQL.
 //! - `sort.rs`: the ordering, independent of what is filtered.
@@ -26,9 +26,10 @@ mod tests;
 
 use serde::Deserialize;
 use sqlx::{QueryBuilder, Sqlite, SqlitePool};
-use tauri::State;
+use tauri::{AppHandle, State};
 use tauri_groups::{TsType, command};
 
+use crate::covers;
 use crate::database::Res;
 use crate::models::Book;
 
@@ -93,6 +94,12 @@ pub enum ReadStatus {
 /// - `started_from` / `started_to` / `finished_from` / `finished_to`: a single
 ///   reading row must satisfy every bound you set, so rereads can't cross-match
 ///
+/// **Filled in**
+/// - `has`: every field listed is there. `isbn`, `blurb`, `notes` and `published` need some text
+///   (spaces alone don't count), `pages` a page count, `rating` a rating above 0, `series` a
+///   series, `author` / `tag` / `category` / `shelf` at least one of them, and `cover` a stored
+///   cover image (a file, so which books have one is looked up outside the database).
+///
 /// **Dates** (every `*_from` / `*_to` field)
 ///
 /// Bounds are inclusive and forgiving about format, see [`parse_date`]:
@@ -151,17 +158,60 @@ pub struct BookFilter {
   pub started_to: Option<String>,
   pub finished_from: Option<String>,
   pub finished_to: Option<String>,
+
+  pub has: Vec<BookField>,
+}
+
+/// Something a book can have or lack, for `BookFilter::has`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, TsType)]
+#[serde(rename_all = "camelCase")]
+pub enum BookField {
+  Isbn,
+  Cover,
+  Rating,
+  Blurb,
+  Notes,
+  Published,
+  Pages,
+  Series,
+  Author,
+  Tag,
+  Category,
+  Shelf,
+}
+
+/// What a query needs to know that isn't in the database.
+#[derive(Debug, Default)]
+pub(crate) struct Outside {
+  /// The books that have a cover. Covers are files, so the command looks them up and hands the
+  /// answer in; it only does so when the filter asks about covers (see [`BookFilter::asks_about_covers`]).
+  pub cover_ids: Vec<i64>,
+}
+
+impl BookFilter {
+  /// Whether answering this filter needs to know which books have a cover.
+  fn asks_about_covers(&self) -> bool {
+    self.has.contains(&BookField::Cover)
+  }
 }
 // SECTION: query
 
 /// `sort` defaults to title, A to Z.
 #[command(db)]
 async fn filter_books(
+  app: AppHandle,
   pool: State<'_, SqlitePool>,
   filter: BookFilter,
   sort: Option<BookSort>,
 ) -> Res<Vec<Book>> {
-  query_books(pool.inner(), &filter, sort.unwrap_or_default()).await
+  let outside = Outside {
+    cover_ids: if filter.asks_about_covers() {
+      covers::book_ids_with_cover(&app)
+    } else {
+      Vec::new()
+    },
+  };
+  query_books(pool.inner(), &filter, sort.unwrap_or_default(), &outside).await
 }
 
 /// The books matching `filter`, in `sort` order. What the command runs; the tests call it directly.
@@ -169,9 +219,10 @@ pub(crate) async fn query_books(
   pool: &SqlitePool,
   filter: &BookFilter,
   sort: BookSort,
+  outside: &Outside,
 ) -> Res<Vec<Book>> {
   let mut qb = QueryBuilder::<Sqlite>::new("SELECT b.* FROM book b WHERE 1 = 1");
-  conditions::push(&mut qb, filter);
+  conditions::push(&mut qb, filter, outside);
   qb.push(sort::order_by(sort));
   Ok(qb.build_query_as::<Book>().fetch_all(pool).await?)
 }
