@@ -123,6 +123,36 @@ fn existing_cover(dir: &Path, book_id: i64) -> Option<PathBuf> {
     .find(|p| p.is_file())
 }
 
+/// The ids of the books that have a cover file in `dir`, sorted. Anything else in the folder (an
+/// ISBN-named leftover, a partial download, a sub-folder) is not the cover of any book.
+fn book_ids_with_cover_in(dir: &Path) -> Vec<i64> {
+  let Ok(entries) = fs::read_dir(dir) else {
+    return Vec::new();
+  };
+  let mut ids: Vec<i64> = entries
+    .filter_map(Result::ok)
+    .map(|entry| entry.path())
+    .filter(|path| path.is_file())
+    .filter_map(|path| {
+      if !EXTS.contains(&path.extension()?.to_str()?) {
+        return None;
+      }
+      parse_book_id(path.file_stem()?.to_str()?)
+    })
+    .collect();
+  ids.sort_unstable();
+  ids.dedup();
+  ids
+}
+
+/// Every book that has a stored cover, for the library filter's "has a cover". No cover folder
+/// yet (or one that can't be read) just means no covers.
+pub(crate) fn book_ids_with_cover(app: &AppHandle) -> Vec<i64> {
+  covers_dir(app)
+    .map(|dir| book_ids_with_cover_in(&dir))
+    .unwrap_or_default()
+}
+
 fn detect_ext(b: &[u8]) -> Option<&'static str> {
   if b.starts_with(&[0xFF, 0xD8, 0xFF]) {
     Some("jpg")
@@ -371,6 +401,25 @@ mod tests {
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
+  }
+
+  #[test]
+  fn only_files_named_after_a_book_id_count_as_covers() {
+    let dir = temp_dir("has-cover");
+    for name in [
+      "5.jpg", "7.png", "12.webp", "3.gif", // covers
+      "007.jpg", "9780441013593.jpg", "8.txt", "9.jpg.part", "10", // not covers
+    ] {
+      fs::write(dir.join(name), b"x").unwrap();
+    }
+    fs::create_dir(dir.join("11.jpg")).unwrap(); // a folder is not a cover
+    assert_eq!(book_ids_with_cover_in(&dir), vec![3, 5, 7, 12]);
+    // a book with two files (an old extension left behind) is listed once
+    fs::write(dir.join("5.png"), b"x").unwrap();
+    assert_eq!(book_ids_with_cover_in(&dir), vec![3, 5, 7, 12]);
+    // no folder at all: no covers
+    assert!(book_ids_with_cover_in(&dir.join("missing")).is_empty());
+    let _ = fs::remove_dir_all(&dir);
   }
 
   #[test]
