@@ -58,6 +58,10 @@ export type BookFilter = {
   publishTo: string | null;
   pageCountMin: number | null;
   pageCountMax: number | null;
+  ratingMin: number | null;
+  ratingMax: number | null;
+  ratingMinExclusive: boolean;
+  ratingMaxExclusive: boolean;
   authorBirthFrom: string | null;
   authorBirthTo: string | null;
   authorDeathFrom: string | null;
