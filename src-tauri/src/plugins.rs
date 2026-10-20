@@ -1,6 +1,7 @@
 //! Book lookup plugins: small `.js` files that fill in a book's details for an ISBN.
 //!
-//! - Open Library and Google Books are built in (`src-tauri/plugins/*.js`, compiled into the app).
+//! - Open Library, Google Books, Inventaire and Wikidata are built in (`src-tauri/plugins/*.js`,
+//!   compiled into the app).
 //!   More can be dropped into `<app data>/plugins/`. A plugin there with a built-in's id replaces it.
 //! - Plugins run in an embedded QuickJS engine with no network or file access of its own. The only
 //!   thing they can do is `http.get(url)`, made here with the same reqwest client the covers use,
@@ -54,9 +55,11 @@ const MAX_BODY: usize = 5 * 1024 * 1024;
 const MAX_PLUGIN_BYTES: usize = 512 * 1024;
 
 /// Built in. When two plugins fill the same field, the earlier one wins.
-const BUILTIN: [(&str, &str); 2] = [
+const BUILTIN: [(&str, &str); 4] = [
   ("openlibrary.js", include_str!("../plugins/openlibrary.js")),
   ("googlebooks.js", include_str!("../plugins/googlebooks.js")),
+  ("inventaire.js", include_str!("../plugins/inventaire.js")),
+  ("wikidata.js", include_str!("../plugins/wikidata.js")),
 ];
 
 /// Build-time settings for built-in plugins: (plugin id, setting, value). Set the environment
@@ -1840,10 +1843,12 @@ mod tests {
     assert!(p.load_builtin().is_empty());
     let list = p.list();
     let ids: Vec<_> = list.iter().map(|i| i.id.as_str()).collect();
-    assert_eq!(ids, ["openlibrary", "googlebooks"]);
+    assert_eq!(ids, ["openlibrary", "googlebooks", "inventaire", "wikidata"]);
     assert!(list.iter().all(|i| i.builtin && i.enabled));
     assert_eq!(list[0].http, ["openlibrary.org"]);
     assert_eq!(list[1].http, ["www.googleapis.com"]);
+    assert_eq!(list[2].http, ["inventaire.io"]);
+    assert_eq!(list[3].http, ["query.wikidata.org"]);
   }
 
   #[test]
@@ -1857,7 +1862,7 @@ mod tests {
     )
     .unwrap();
     let list = p.list();
-    assert_eq!(list.len(), 2);
+    assert_eq!(list.len(), 4);
     assert_eq!(list[0].name, "Mine");
     assert!(!list[0].builtin);
     assert_eq!(list[1].id, "googlebooks");

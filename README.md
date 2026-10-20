@@ -67,6 +67,8 @@ Book details come from lookup plugins. Every enabled plugin runs on a scan and t
 | ------------ | ------------------------------------------ |
 | Open Library | No setup needed                            |
 | Google Books | Needs your own API key, see below          |
+| Inventaire   | No setup needed, no blurb                  |
+| Wikidata     | No setup needed, no blurb, sparse coverage |
 
 Plugins can fill title, publish date, page count, authors, tags, series, blurb and cover. Turn them on and off in the Plugins tab.
 
