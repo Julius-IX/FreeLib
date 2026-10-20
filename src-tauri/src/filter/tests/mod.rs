@@ -107,3 +107,15 @@ fn a_cover_filter_without_any_covers_matches_nothing() {
     .unwrap();
   assert!(got.is_empty());
 }
+
+#[test]
+fn deeply_nested_excludes_are_cut_off_instead_of_blowing_up() {
+  let pool = pool();
+  // 40 levels deep: with no limit the query text alone would be astronomically large
+  let mut json = r#"{"tag":"fantasy"}"#.to_string();
+  for _ in 0..40 {
+    json = format!(r#"{{"exclude":[{json}]}}"#);
+  }
+  let got = ids(&pool, &json, "");
+  assert!(got.len() <= 14, "{got:?}"); // it ran, and answered something
+}
