@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, Chip, Typography, IconButton } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ChecklistIcon from "@mui/icons-material/Checklist";
 import { isDesktop } from "@/util/misc";
 import { useLibrary } from "../LibraryContext";
 import SearchField from "./SearchField";
@@ -9,7 +10,7 @@ import SortMenu from "./SortMenu";
 import { emptyFilter } from "../search";
 import { libraryViewState } from "../libraryViewState";
 
-export default function TopBar() {
+export default function TopBar({ onSelect }: { onSelect?: () => void }) {
   const desktop = isDesktop();
   const { books, setFilter } = useLibrary();
   const [searchOpen, setSearchOpenState] = useState(() => libraryViewState.searchOpen);
@@ -60,6 +61,11 @@ export default function TopBar() {
         {!desktop && !searchOpen && (
           <IconButton onClick={() => setSearchOpen(true)}>
             <SearchIcon />
+          </IconButton>
+        )}
+        {!searching && onSelect && (
+          <IconButton aria-label="Select books" title="Select books" onClick={onSelect}>
+            <ChecklistIcon />
           </IconButton>
         )}
         <SortMenu />

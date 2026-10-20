@@ -12,11 +12,13 @@ import ScanBook from "./screens/ScanBook";
 import CoverPreviewPage, { COVER_SEGMENT } from "./screens/CoverPreview";
 import TopBar from "./components/TopBar";
 import { LibraryProvider, useLibrary } from "./LibraryContext";
-import CardGrid from "./components/CardGrid";
+import CardGrid, { type GridSelection } from "./components/CardGrid";
 import BookView from "./screens/BookView";
 import { Book } from "@/lib/types";
 import BookNotes from "./screens/BookNotes";
 import ShelfTabs from "./shelves/ShelfTabs";
+import SelectionBar from "./selection/SelectionBar";
+import { useSelection } from "./selection/useSelection";
 
 function LibraryHomeWrapper() {
   return (
@@ -29,6 +31,7 @@ function LibraryHomeWrapper() {
 function LibraryHome() {
   const navigate = useNavigate();
   const { books } = useLibrary();
+  const selection = useSelection(books);
 
   const actions = [
     { label: 'Add Book', icon: <BookIcon />, onClick: () => navigate(LibraryPath.AddBook) },
@@ -38,15 +41,24 @@ function LibraryHome() {
 
   const onBookClick = (book: Book) => navigate(bookView(book));
 
+  const gridSelection: GridSelection = {
+    active: selection.active,
+    selected: selection.selected,
+    onToggle: (book, range) =>
+      range ? selection.selectRange(books, book.bookId) : selection.toggle(book.bookId),
+    onStart: (book) => selection.start(book.bookId),
+  };
+
   return (
     <Box sx={{ p: 2, height: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
-      <TopBar />
+      {selection.active ? (
+        <SelectionBar selection={selection} books={books} />
+      ) : (
+        <TopBar onSelect={selection.enter} />
+      )}
       <ShelfTabs />
-      <CardGrid items={books} onOpen={onBookClick} />
-      <FabActionStack
-        actions={actions}
-      />
-
+      <CardGrid items={books} onOpen={onBookClick} selection={gridSelection} />
+      {!selection.active && <FabActionStack actions={actions} />}
     </Box>
   );
 }
