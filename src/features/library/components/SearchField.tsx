@@ -34,7 +34,7 @@ export default function SearchField({ autoFocus }: { autoFocus?: boolean }) {
       autoFocus={autoFocus}
       value={text}
       onChange={(e) => setText(e.target.value)}
-      placeholder="tag:fantasy  author:'Le Guin'"
+      placeholder="tag:fantasy  author:'Le Guin' has:cover !rating:>3"
       variant="standard"
       sx={{ flex: 1 }}
       slotProps={{
