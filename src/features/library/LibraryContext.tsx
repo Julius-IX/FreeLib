@@ -9,7 +9,7 @@ import {
 } from "react";
 import { commands } from "@/lib/commands";
 import type { Book, BookFilter, BookSort } from "@/lib/types";
-import { emptyFilter } from "./searchQuery";
+import { emptyFilter } from "./search";
 import { notify } from "@/notifications/notify";
 import { useLibraryRevision } from "./libraryEvents";
 import { useLibrarySort } from "./librarySort";

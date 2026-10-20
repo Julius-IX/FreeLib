@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { InputAdornment, TextField } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import type { BookFilter } from "@/lib/types";
-import { emptyFilter, parseQuery } from "../searchQuery";
+import { emptyFilter, parseQuery } from "../search";
 import { useLibrary } from "../LibraryContext";
 
 export default function SearchField({ autoFocus }: { autoFocus?: boolean }) {
