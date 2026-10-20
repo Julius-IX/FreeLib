@@ -100,4 +100,18 @@ pub(super) const CASES: &[Case] = &[
   ("text non-ascii exact case", r##"{"text":"nïc"}"##, r##""##, &[13]),
   ("author and tag and status", r##"{"author":"herbert","tag":"scifi","readStatus":"unread"}"##, r##""##, &[14, 10]),
   ("all filters unparseable", r##"{"publishFrom":"x","authorBirthFrom":"y","startedFrom":"z","color":"nope"}"##, r##""##, &[12, 1, 8, 14, 9, 3, 4, 6, 11, 7, 10, 5, 2, 13]),
+  // rating (books: 1=9, 2=8, 3=10, 5=7.5, 6=8.5, 9=3, 10=5, 13=6, the rest unrated)
+  ("rating exact", r##"{"ratingMin":8,"ratingMax":8}"##, r##""##, &[2]),
+  ("rating at least", r##"{"ratingMin":8}"##, r##""##, &[1, 3, 6, 2]),
+  ("rating above (exclusive)", r##"{"ratingMin":8,"ratingMinExclusive":true}"##, r##""##, &[1, 3, 6]),
+  ("rating at most", r##"{"ratingMax":5}"##, r##""##, &[9, 10]),
+  ("rating below (exclusive)", r##"{"ratingMax":5,"ratingMaxExclusive":true}"##, r##""##, &[9]),
+  ("rating range", r##"{"ratingMin":7,"ratingMax":9}"##, r##""##, &[1, 6, 5, 2]),
+  ("rating reversed range is swapped", r##"{"ratingMin":9,"ratingMax":7}"##, r##""##, &[1, 6, 5, 2]),
+  ("rating reversed range keeps each edge's exclusivity", r##"{"ratingMin":9,"ratingMinExclusive":true,"ratingMax":7}"##, r##""##, &[6, 5, 2]),
+  ("rating at most 0 matches nothing", r##"{"ratingMax":0}"##, r##""##, &[]),
+  ("rating at least 0 still leaves out the unrated", r##"{"ratingMin":0}"##, r##""##, &[1, 9, 3, 6, 10, 5, 2, 13]),
+  ("rating with decimals", r##"{"ratingMin":7.5,"ratingMax":7.5}"##, r##""##, &[5]),
+  ("rating and tag", r##"{"tag":"fantasy","ratingMin":8}"##, r##""##, &[1, 2]),
+  ("rating flags without a value filter nothing", r##"{"ratingMinExclusive":true,"ratingMaxExclusive":true}"##, r##""##, &[12, 1, 8, 14, 9, 3, 4, 6, 11, 7, 10, 5, 2, 13]),
 ];
