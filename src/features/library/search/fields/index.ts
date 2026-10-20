@@ -1,4 +1,5 @@
 import { dateFields } from "./dates";
+import { hasFields } from "./has";
 import { idFields } from "./ids";
 import { pageFields } from "./pages";
 import { ratingFields } from "./rating";
@@ -16,6 +17,7 @@ export const FIELDS: FieldDef[] = [
   ...dateFields,
   ...pageFields,
   ...ratingFields,
+  ...hasFields,
   ...idFields,
 ];
 
