@@ -1,4 +1,4 @@
-import type { Theme } from "@mui/material";
+import { alpha, type Theme } from "@mui/material";
 import type { SystemStyleObject } from "@mui/system";
 import { Book, Category } from "@/lib/types";
 
@@ -7,7 +7,7 @@ import { Book, Category } from "@/lib/types";
 import placeholderCover from "@/assets/placeholder-cover-small.png";
 import { useCover } from "../useCover";
 import { commands } from "@/lib/commands";
-import { memo, useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { useLibraryRevision } from "../libraryEvents";
 import { isMobile } from "@/util/misc";
 import { isScrolling, onScrollIdle } from "../scrollGate";
@@ -16,6 +16,11 @@ import { isScrolling, onScrollIdle } from "../scrollGate";
  * A card is plain DOM + class names on purpose. The grid mounts a whole row of them every time a
  * row boundary is scrolled past. The styles live once on `bookCardSx` and cards carry class names.
  */
+
+/** A touch held this long selects the card. */
+const LONG_PRESS_MS = 500;
+/** Finger travel (px) that turns a press into a scroll. */
+const MOVE_SLOP = 10;
 
 /** Styles for every `.bk-*` element below. Apply to the grid element that contains the cards. */
 export const bookCardSx = (theme: Theme): SystemStyleObject<Theme> => ({
@@ -58,6 +63,47 @@ export const bookCardSx = (theme: Theme): SystemStyleObject<Theme> => ({
   "& .bk-btn:focus-visible": {
     outline: `2px solid ${theme.palette.primary.main}`,
     outlineOffset: -2,
+  },
+  // selection: a tint and frame over the whole card, and a round check mark drawn with borders
+  // so that no icon component is mounted per card
+  "& .bk-selected::after": {
+    content: '""',
+    position: "absolute",
+    inset: 0,
+    zIndex: 2,
+    pointerEvents: "none",
+    boxSizing: "border-box",
+    border: `3px solid ${theme.palette.primary.main}`,
+    borderRadius: "inherit",
+    backgroundColor: alpha(theme.palette.primary.main, 0.22),
+  },
+  "& .bk-check": {
+    position: "absolute",
+    top: 22,
+    right: 6,
+    zIndex: 3,
+    width: 22,
+    height: 22,
+    boxSizing: "border-box",
+    borderRadius: "50%",
+    border: "2px solid #fff",
+    backgroundColor: "rgba(0,0,0,0.35)",
+    pointerEvents: "none",
+  },
+  "& .bk-selected .bk-check": {
+    backgroundColor: theme.palette.primary.main,
+    borderColor: theme.palette.primary.main,
+  },
+  "& .bk-selected .bk-check::after": {
+    content: '""',
+    position: "absolute",
+    left: 6,
+    top: 2,
+    width: 5,
+    height: 10,
+    border: "solid #fff",
+    borderWidth: "0 2px 2px 0",
+    transform: "rotate(45deg)",
   },
   "& .bk-img": {
     display: "block",
@@ -176,19 +222,79 @@ function CategoryChips({ bookId }: { bookId: number }) {
 
 function BookCard({
   book,
+  selecting,
+  selected,
   onClick,
+  onLongPress,
 }: {
   book: Book;
-  onClick?: (book: Book) => void;
+  /** The grid is in selection mode, so every card shows a check mark. */
+  selecting: boolean;
+  selected: boolean;
+  onClick?: (book: Book, e: MouseEvent) => void;
+  /** A long touch or a right click. */
+  onLongPress?: (book: Book) => void;
 }) {
   // Desktop webviews rescale full-size covers on every scroll frame, so the grid gets thumbnails.
   const { url } = useCover(book.bookId, { thumb: !isMobile() });
 
+  // A click follows the end of a long touch on some webviews, and must not count as a tap.
+  const press = useRef<{ timer: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
+  const longPressed = useRef(false);
+
+  const cancelPress = () => {
+    if (press.current) clearTimeout(press.current.timer);
+    press.current = null;
+  };
+  useEffect(() => cancelPress, []);
+
+  // The mouse selects through right click and Ctrl-click, only touch and pen use the timer.
+  const handlePointerDown = (e: PointerEvent) => {
+    if (!onLongPress || e.pointerType === "mouse" || e.button !== 0) return;
+    longPressed.current = false;
+    press.current = {
+      x: e.clientX,
+      y: e.clientY,
+      timer: setTimeout(() => {
+        press.current = null;
+        longPressed.current = true;
+        onLongPress(book);
+      }, LONG_PRESS_MS),
+    };
+  };
+
+  const handlePointerMove = (e: PointerEvent) => {
+    const p = press.current;
+    if (p && Math.hypot(e.clientX - p.x, e.clientY - p.y) > MOVE_SLOP) cancelPress();
+  };
+
   return (
-    <div className="bk">
-      <button type="button" className="bk-btn" onClick={() => onClick?.(book)}>
+    <div className={selected ? "bk bk-selected" : "bk"}>
+      <button
+        type="button"
+        className="bk-btn"
+        aria-pressed={selecting ? selected : undefined}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={cancelPress}
+        onPointerCancel={cancelPress}
+        onPointerLeave={cancelPress}
+        onContextMenu={(e) => {
+          // also what a long touch triggers on Android, where it would open the image menu
+          e.preventDefault();
+          if (!longPressed.current) onLongPress?.(book);
+        }}
+        onClick={(e) => {
+          if (longPressed.current) {
+            longPressed.current = false;
+            return;
+          }
+          onClick?.(book, e);
+        }}
+      >
         <img className="bk-img" src={url ?? placeholderCover} alt={book.title} decoding="async" />
         <CategoryChips bookId={book.bookId} />
+        {selecting && <div className="bk-check" aria-hidden />}
         <div className="bk-fade" />
         <div className="bk-foot">
           <span className="bk-title">{book.title}</span>
