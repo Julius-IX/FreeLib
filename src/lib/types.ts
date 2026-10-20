@@ -264,3 +264,4 @@ export type TagInput = {
 export type TagType = {
   tagTypeId: number;
   name: string;
+}
