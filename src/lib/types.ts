@@ -34,6 +34,8 @@ export type BookCategory = {
   categoryId: number;
 }
 
+export type BookField = "isbn" | "cover" | "rating" | "blurb" | "notes" | "published" | "pages" | "series" | "author" | "tag" | "category" | "shelf";
+
 export type BookFilter = {
   text: string | null;
   title: string | null;
@@ -71,6 +73,7 @@ export type BookFilter = {
   startedTo: string | null;
   finishedFrom: string | null;
   finishedTo: string | null;
+  has: BookField[];
 }
 
 export type BookInfo = {

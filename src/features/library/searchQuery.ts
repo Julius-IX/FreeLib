@@ -27,6 +27,10 @@ export function emptyFilter(): BookFilter {
     publishTo: null,
     pageCountMin: null,
     pageCountMax: null,
+    ratingMin: null,
+    ratingMax: null,
+    ratingMinExclusive: false,
+    ratingMaxExclusive: false,
     authorBirthFrom: null,
     authorBirthTo: null,
     authorDeathFrom: null,
@@ -36,6 +40,7 @@ export function emptyFilter(): BookFilter {
     startedTo: null,
     finishedFrom: null,
     finishedTo: null,
+    has: [],
   };
 }
 

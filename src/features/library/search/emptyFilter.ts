@@ -39,5 +39,6 @@ export function emptyFilter(): BookFilter {
     startedTo: null,
     finishedFrom: null,
     finishedTo: null,
+    has: [],
   };
 }
