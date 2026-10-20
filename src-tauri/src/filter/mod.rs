@@ -78,6 +78,11 @@ pub enum ReadStatus {
 /// - `publish_from` / `publish_to`: publish date range
 /// - `page_count_min` / `page_count_max`: inclusive page range. Setting either
 ///   excludes books with no page count. A reversed range (min > max) is swapped.
+/// - `rating_min` / `rating_max`: inclusive rating range, on the 0-10 scale a rating is stored in.
+///   Setting either excludes unrated books (rating 0), so `rating_max = 5` means "rated 5 or less",
+///   not "5 or less, or never rated". With `rating_min_exclusive` / `rating_max_exclusive` the
+///   bound itself is left out (`>` and `<` instead of `>=` and `<=`). A reversed range is swapped,
+///   each bound keeping its own exclusivity.
 ///
 /// **Author dates** (matches if any single author fits all the bounds you set)
 /// - `author_birth_from` / `author_birth_to`
@@ -131,6 +136,10 @@ pub struct BookFilter {
   pub publish_to: Option<String>,
   pub page_count_min: Option<i64>,
   pub page_count_max: Option<i64>,
+  pub rating_min: Option<f64>,
+  pub rating_max: Option<f64>,
+  pub rating_min_exclusive: bool,
+  pub rating_max_exclusive: bool,
 
   pub author_birth_from: Option<String>,
   pub author_birth_to: Option<String>,
