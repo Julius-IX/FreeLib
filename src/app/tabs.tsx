@@ -6,6 +6,7 @@ import Settings from "@mui/icons-material/Settings";
 import { libraryRoutes } from "@/features/library/routes";
 import { pluginsRoutes } from "@/features/plugins/routes";
 import { settingsRoutes } from "@/features/settings/routes";
+import { resetLibraryViewState } from "@/features/library/libraryViewState";
 
 // Put on a route to control the bar:  handle: { hideNav: true }
 // Put modal: true to render the route as an overlay on top of the previous page
@@ -16,11 +17,12 @@ export type Tab = {
   label: string;
   icon: ReactNode;
   routes: RouteObject[]; // this tab's own screens and sub-screens
+  onReset?: () => void; // tapping the active tab resets it to its root, clearing state kept outside
 };
 
 // To add a menu: create features/<name>/routes.tsx and add one entry here.
 export const tabs: Tab[] = [
-  { id: "library", label: "Library", icon: <LibraryBooks />, routes: libraryRoutes },
+  { id: "library", label: "Library", icon: <LibraryBooks />, routes: libraryRoutes, onReset: resetLibraryViewState },
   { id: "plugins", label: "Plugins", icon: <Extension />, routes: pluginsRoutes },
   { id: "settings", label: "Settings", icon: <Settings />, routes: settingsRoutes },
 ];

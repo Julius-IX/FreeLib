@@ -5,6 +5,8 @@ import { Book } from "@/lib/types";
 import { isMobile } from "@/util/misc";
 import { useLibraryColumns } from "../libraryColumns";
 import { markScrolling } from "../scrollGate";
+import { useLibrary } from "../LibraryContext";
+import { libraryViewState } from "../libraryViewState";
 
 /** Extra rows rendered above and below the viewport so fast scrolling doesn't reveal blanks. */
 const OVERSCAN_ROWS = 2;
@@ -31,6 +33,7 @@ export default function CardGrid({
   const isOnMobile = isMobile();
   const [columns] = useLibraryColumns();
   const theme = useTheme();
+  const { loading } = useLibrary();
   const gap = parseFloat(theme.spacing(isOnMobile ? 1 : 2));
 
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -139,6 +142,25 @@ export default function CardGrid({
     updateThumb();
   }, [updateRange, updateThumb, rowCount]);
 
+  // The grid is remounted when a book is opened, and its tab loses the scroll offset while hidden
+  // (display: none). The saved offset is put back once the grid is measured and loaded again.
+  const restore = useRef(true);
+  useLayoutEffect(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (stride <= 0) {
+      restore.current = true;
+      return;
+    }
+    if (loading || !restore.current) return;
+    restore.current = false;
+    if (libraryViewState.scrollTop > 0) {
+      el.scrollTop = libraryViewState.scrollTop;
+      updateRange();
+      updateThumb();
+    }
+  }, [loading, stride, rowCount, updateRange, updateThumb]);
+
   const startIndex = range.start * columns;
   const endIndex = Math.min(items.length, range.end * columns);
   const visible = items.slice(startIndex, endIndex);
@@ -164,7 +186,8 @@ export default function CardGrid({
     >
       <Box
         ref={scrollerRef}
-        onScroll={() => {
+        onScroll={(e) => {
+          if (stride > 0 && !restore.current) libraryViewState.scrollTop = e.currentTarget.scrollTop;
           markScrolling();
           updateRange();
           updateThumb();

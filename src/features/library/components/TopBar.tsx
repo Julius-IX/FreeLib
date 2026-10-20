@@ -6,16 +6,27 @@ import { isDesktop } from "@/util/misc";
 import { useLibrary } from "../LibraryContext";
 import SearchField from "./SearchField";
 import SortMenu from "./SortMenu";
+import { emptyFilter } from "../search";
+import { libraryViewState } from "../libraryViewState";
 
 export default function TopBar() {
   const desktop = isDesktop();
-  const { books } = useLibrary();
-  const [searchOpen, setSearchOpen] = useState(false);
+  const { books, setFilter } = useLibrary();
+  const [searchOpen, setSearchOpenState] = useState(() => libraryViewState.searchOpen);
+  const setSearchOpen = (open: boolean) => {
+    libraryViewState.searchOpen = open;
+    setSearchOpenState(open);
+  };
 
   const searching = !desktop && searchOpen; // mobile search mode
   const showSearchField = desktop || searching;
 
-  const closeSearch = () => setSearchOpen(false);
+  // Closing the field clears the search. Merely leaving the screen keeps it.
+  const closeSearch = () => {
+    libraryViewState.searchText = "";
+    setFilter(emptyFilter());
+    setSearchOpen(false);
+  };
 
   return (
     <Box sx={{
