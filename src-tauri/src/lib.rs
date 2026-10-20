@@ -7,6 +7,7 @@ mod import;
 pub mod models;
 mod plugins;
 mod settings;
+mod stats;
 
 /// Linux (WebKitGTK) refuses every getUserMedia request unless the app answers the permission
 /// request itself, and ships with media streams off. The desktop barcode scanner needs the

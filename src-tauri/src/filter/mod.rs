@@ -34,6 +34,7 @@ use crate::database::Res;
 use crate::models::Book;
 
 pub(crate) use dates::parse_full_date;
+use dates::{date_bound, push_date};
 use sort::BookSort;
 
 #[derive(Debug, Clone, Deserialize, TsType)]
@@ -216,14 +217,44 @@ async fn filter_books(
   filter: BookFilter,
   sort: Option<BookSort>,
 ) -> Res<Vec<Book>> {
-  let outside = Outside {
+  let outside = outside_for(&app, &filter);
+  query_books(pool.inner(), &filter, sort.unwrap_or_default(), &outside).await
+}
+
+/// What `filter` needs from outside the database, looked up only when it asks for it.
+pub(crate) fn outside_for(app: &AppHandle, filter: &BookFilter) -> Outside {
+  Outside {
     cover_ids: if filter.asks_about_covers() {
-      covers::book_ids_with_cover(&app)
+      covers::book_ids_with_cover(app)
     } else {
       Vec::new()
     },
-  };
-  query_books(pool.inner(), &filter, sort.unwrap_or_default(), &outside).await
+  }
+}
+
+/// Appends ` AND <condition>` for everything `filter` asks, for a query over `book b`. Lets other
+/// modules (the stats) narrow their books exactly like the library does.
+pub(crate) fn push_conditions(
+  qb: &mut QueryBuilder<'_, Sqlite>,
+  filter: &BookFilter,
+  outside: &Outside,
+) {
+  conditions::push(qb, filter, outside);
+}
+
+/// Appends the range `filter` puts on the finish date of a reading, as conditions on `column`.
+/// The conditions themselves only check that a reading fits, so a query that groups readings
+/// uses this to leave out the ones outside the range.
+pub(crate) fn push_finished_bounds(
+  qb: &mut QueryBuilder<'_, Sqlite>,
+  filter: &BookFilter,
+  column: &str,
+) {
+  push_date(
+    qb,
+    column,
+    &date_bound(&filter.finished_from, &filter.finished_to),
+  );
 }
 
 /// The books matching `filter`, in `sort` order. What the command runs. The tests call it directly.
