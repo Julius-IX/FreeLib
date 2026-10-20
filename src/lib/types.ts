@@ -193,6 +193,14 @@ export type LibraryImportReport = {
   importedBookIds: number[];
 }
 
+export type LibrarySummary = {
+  books: number;
+  finished: number;
+  inProgress: number;
+  pagesRead: number;
+  avgRating: number | null;
+}
+
 export type LookupOutcome = {
   data: BookInfo | null;
   sources: string[];
@@ -257,6 +265,29 @@ export type Shelf = {
 export type SortDir = "asc" | "desc";
 
 export type SortKey = "title" | "author" | "series" | "category" | "added" | "published" | "pages" | "lastRead" | "timesRead";
+
+export type StatsGroup = "readStatus" | "author" | "tag" | "category" | "shelf" | "series" | "publishYear" | "publishDecade" | "rating" | "pageCount" | "addedMonth" | "finishedYear" | "finishedMonth";
+
+export type StatsMeasure = "books" | "pages" | "avgRating" | "avgPages";
+
+export type StatsQuery = {
+  measure: StatsMeasure;
+  groupBy: StatsGroup;
+  filter: BookFilter;
+  limit: number | null;
+  includeEmpty: boolean;
+}
+
+export type StatsResult = {
+  rows: StatsRow[];
+  matchingBooks: number;
+}
+
+export type StatsRow = {
+  label: string;
+  value: number;
+  books: number;
+}
 
 export type Tag = {
   tagId: number;
