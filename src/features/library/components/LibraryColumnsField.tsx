@@ -6,7 +6,7 @@ export default function LibraryColumnsField() {
   const { min, max } = libraryColumnsRange();
   const [columns, saveColumns] = useLibraryColumns();
 
-  // Track the slider locally while dragging so we only write to disk on release
+  // Track the slider locally while dragging so the value is only written to disk on release
   const [draft, setDraft] = useState(columns);
   useEffect(() => setDraft(columns), [columns]);
 

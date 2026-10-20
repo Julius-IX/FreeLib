@@ -1,6 +1,6 @@
 //! The Goodreads format: the CSV from *My Books → Import and export → Export Library*.
 //!
-//! This file only turns that CSV into [`ImportBook`]s; writing them to the database is shared
+//! This file only turns that CSV into [`ImportBook`]s. Writing them to the database is shared
 //! with every other format (see the parent module).
 //!
 //! What a row becomes:

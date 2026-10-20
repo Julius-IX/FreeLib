@@ -1,9 +1,8 @@
 /**
- * A rating is a number from 0 to 10; 0 means "not rated" (see `migrations/0003_rating.sql`).
- * It is drawn as `RATING_ICONS` icons, so every icon is worth 2 points, and can be tapped on its
- * left half (half an icon = 1 point) or its right half (the whole icon = 2 points). That makes
- * every whole number from 1 to 10 one tap away. Anything finer (7.5) is typed in, by tapping
- * the "7/10" label.
+ * A rating is a number from 0 to 10, 0 = "not rated" (see `migrations/0003_rating.sql`). It is
+ * drawn as `RATING_ICONS` icons worth 2 points each. Tapping an icon's left half gives 1 point and
+ * its right half 2, so every whole number is one tap away. Finer values (7.5) are typed in via the
+ * "7/10" label.
  */
 export const RATING_MAX = 10;
 export const RATING_ICONS = 5;
@@ -23,8 +22,7 @@ export function ratingFill(value: number, index: number): number {
 
 /**
  * The rating a tap at `x` px from the left edge of a row of icons `width` px wide stands for.
- * Every icon owns an equal slice of the width (its own gap included), so there are no dead
- * spots between icons.
+ * Every icon owns an equal slice of the width (its gap included), so there are no dead spots.
  */
 export function ratingAtPoint(x: number, width: number): number {
   if (width <= 0) return 0;

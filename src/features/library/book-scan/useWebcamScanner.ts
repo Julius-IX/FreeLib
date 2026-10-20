@@ -31,7 +31,7 @@ const WARM_UP_MAX_MS = 6000; // some USB cameras show one still frame for a few 
 /** Counters that only exist to explain what the camera was doing when it got stuck. */
 type FrameStats = {
   presented: number; // frames the video element says it showed
-  painted: number; // frames we copied onto the canvas
+  painted: number; // frames copied onto the canvas
   changes: number; // times a tiny sample of the picture differed from the last one (noise counts)
 };
 
@@ -120,7 +120,7 @@ function runScanLoop(canvasRef: RefObject<HTMLCanvasElement | null>, video: HTML
 
 /**
  * Starts the camera, paints it onto `canvasRef`, and calls `onCode` once with the first code it
- * reads and where that code is in the frame. The camera is released at that point; the canvas
+ * reads and where that code is in the frame. The camera is released at that point. The canvas
  * keeps the last frame. Bump `attempt` to start over, e.g. from a "Try again" button.
  */
 export function useWebcamScanner(
@@ -136,7 +136,7 @@ export function useWebcamScanner(
 
   useEffect(() => {
     let cancelled = false;
-    let held = false; // we hold a reference on the shared camera stream
+    let held = false; // a reference on the shared camera stream is held
     const video = createFrameVideo();
     const cleanups: (() => void)[] = [];
 
@@ -190,7 +190,7 @@ export function useWebcamScanner(
               fail("stalled", detail);
             },
             onCode: (text, found) => {
-              release(); // the canvas keeps the last frame
+              release();
               setState({ phase: "done" });
               onCodeRef.current(text, found);
             },

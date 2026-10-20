@@ -36,7 +36,7 @@ struct Edge {
 }
 
 /// The rating range as `(lowest, highest)`. A reversed range is swapped, each end keeping its own
-/// exclusivity; a value that isn't a number is treated as not set.
+/// exclusivity. A value that isn't a number is treated as not set.
 fn rating_range(f: &BookFilter) -> (Option<Edge>, Option<Edge>) {
   let edge = |value: Option<f64>, exclusive: bool| {
     value

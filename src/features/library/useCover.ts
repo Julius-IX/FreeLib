@@ -37,9 +37,9 @@ function dedupe(key: string, run: () => Promise<void>) {
 }
 
 /**
- * Cover loads run through a small queue instead of all at once. Reading and decoding a full-size
- * cover is heavy, and a fast scroll used to start hundreds of them in parallel. The newest request
- * runs first (that's the row on screen), and a job whose card has already unmounted is dropped.
+ * Cover loads run through a small queue, since a fast scroll used to start hundreds of heavy
+ * read + decode jobs in parallel. The newest request runs first (the row on screen) and a job
+ * whose card has already unmounted is dropped.
  */
 const MAX_CONCURRENT_LOADS = 3;
 const wanted = new Map<number, number>(); // book id -> cards currently showing it
@@ -52,7 +52,7 @@ function pump() {
     return;
   }
   while (running < MAX_CONCURRENT_LOADS && queue.length > 0) {
-    const job = queue.pop()!; // newest first
+    const job = queue.pop()!;
     if (!wanted.get(job.id)) {
       job.done();
       continue;

@@ -39,9 +39,9 @@ type Props = {
 };
 
 /**
- * One screen for writing a piece of text that saves as you type, no edit/save buttons.
- * Mobile: a full screen page. Desktop: a modal. Used for a book's notes and for a plugin's config;
- * the caller says where the text comes from and goes to.
+ * One screen for writing a piece of text that saves while typing, without edit/save buttons.
+ * Mobile: a full screen page. Desktop: a modal. Used for a book's notes and for a plugin's config.
+ * The caller says where the text comes from and goes to.
  */
 export default function NotesPage({
   title,
@@ -77,7 +77,7 @@ export default function NotesPage({
     };
   }, [load, what]);
 
-  // Debounced autosave. `pending` holds what still needs writing; flush() writes it now.
+  // Debounced autosave. `pending` holds what still needs writing. flush() writes it now.
   const pending = useRef<{ text: string } | null>(null);
   const timer = useRef<number | undefined>(undefined);
   const heldBack = useRef<string | null>(null); // the validate() message for text that was NOT saved

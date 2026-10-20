@@ -32,7 +32,7 @@ function problemFor(errorName?: string): CameraProblem {
   }
 }
 
-/** Whatever the camera code threw -> a problem we have text for, plus a technical detail line. */
+/** Whatever the camera code threw -> a problem with a known message, plus a technical detail line. */
 export function classify(e: unknown): { problem: CameraProblem; detail?: string } {
   const name = (e as { name?: string } | null)?.name;
   const detail = [name, e instanceof Error ? e.message : String(e)].filter(Boolean).join(": ");

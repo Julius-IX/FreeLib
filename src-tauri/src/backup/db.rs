@@ -56,7 +56,7 @@ pub(super) async fn read_backup_db(path: &Path) -> Res<BackupData> {
     return Err(BackupError::new("the backup's database is damaged"));
   }
 
-  // An older backup is upgraded here; one from a newer app has migrations we don't know.
+  // An older backup is upgraded here. One from a newer app has migrations unknown to this version.
   sqlx::migrate!()
     .run_direct(&mut conn)
     .await
@@ -117,10 +117,10 @@ pub(super) async fn read_backup_db(path: &Path) -> Res<BackupData> {
 // covers everything the migration history knows about (e.g. 1.0.0 -> 1.1.0). What's left is a
 // backup whose database doesn't match its own migration history (hand-edited, damaged, made by
 // a development build). For those: a missing core table or column fails the import with a
-// clear message; anything that's optional is read as empty and reported as a warning.
+// clear message, anything that's optional is read as empty and reported as a warning.
 
 /// One column the importer reads. `fallback` is the SQL value used when the backup doesn't have
-/// the column; `None` means the backup can't be imported without it.
+/// the column. `None` means the backup can't be imported without it.
 struct Col {
   name: &'static str,
   fallback: Option<&'static str>,
@@ -137,7 +137,7 @@ const fn opt(name: &'static str, fallback: &'static str) -> Col {
   }
 }
 
-/// One table the importer reads. A missing `required` table fails the import; a missing optional
+/// One table the importer reads. A missing `required` table fails the import. A missing optional
 /// one is read as empty.
 struct Spec {
   table: &'static str,
@@ -558,7 +558,7 @@ struct IdMaps {
 }
 
 /// Merges the backup's rows into the live database in one transaction. With `overwrite`, a book
-/// that already exists is replaced by the backup's version; without it, it's left alone.
+/// that already exists is replaced by the backup's version. Without it, it's left alone.
 /// Returns the backup's book ids mapped to the live books they were added as or written over,
 /// which the cover step needs. A book that was left alone isn't in it.
 pub(super) async fn merge_db(
@@ -607,7 +607,7 @@ async fn merge_authors(
     if let Some(&id) = host_authors.get(&name_key(&a.name)) {
       author_map.insert(a.author_id, id);
       if overwrite && (a.birth_date.is_some() || a.death_date.is_some()) {
-        // a value the backup doesn't have is kept; one the table's date checks refuse is skipped
+        // a value the backup doesn't have is kept, one the table's date checks refuse is skipped
         let r = sqlx::query(
           "UPDATE author SET birth_date = COALESCE(?, birth_date),
                              death_date = COALESCE(?, death_date) WHERE author_id = ?",
@@ -640,7 +640,7 @@ async fn merge_authors(
   Ok(author_map)
 }
 
-/// Series are matched by name; missing ones are added.
+/// Series are matched by name. Missing ones are added.
 async fn merge_series(tx: &mut Tx<'_>, data: &BackupData, report: &mut ImportReport) -> Res<IdMap> {
   let mut host_series: HashMap<String, i64> =
     sqlx::query_as::<_, (i64, String)>("SELECT series_id, name FROM series")
@@ -669,7 +669,7 @@ async fn merge_series(tx: &mut Tx<'_>, data: &BackupData, report: &mut ImportRep
   Ok(series_map)
 }
 
-/// Tag types are matched by name; missing ones are added.
+/// Tag types are matched by name. Missing ones are added.
 async fn merge_tag_types(tx: &mut Tx<'_>, data: &BackupData) -> Res<IdMap> {
   let mut host_types: HashMap<String, i64> =
     sqlx::query_as::<_, (i64, String)>("SELECT tag_type_id, name FROM tag_type")
@@ -697,7 +697,7 @@ async fn merge_tag_types(tx: &mut Tx<'_>, data: &BackupData) -> Res<IdMap> {
   Ok(type_map)
 }
 
-/// Tags are matched by (tag type, name); missing ones are added. `type_map` comes from
+/// Tags are matched by (tag type, name). Missing ones are added. `type_map` comes from
 /// `merge_tag_types`.
 async fn merge_tags(
   tx: &mut Tx<'_>,
@@ -737,7 +737,7 @@ async fn merge_tags(
   Ok(tag_map)
 }
 
-/// Categories are matched by name; missing ones are added. With `overwrite`, a matched category
+/// Categories are matched by name. Missing ones are added. With `overwrite`, a matched category
 /// takes the backup's color.
 async fn merge_categories(
   tx: &mut Tx<'_>,
@@ -783,7 +783,7 @@ async fn merge_categories(
   Ok(category_map)
 }
 
-/// Shelves are matched by name; missing ones are added at the end of the tab row (in the
+/// Shelves are matched by name. Missing ones are added at the end of the tab row (in the
 /// backup's order). A matched shelf keeps its place.
 async fn merge_shelves(tx: &mut Tx<'_>, data: &BackupData, report: &mut ImportReport) -> Res<IdMap> {
   let mut host_shelves: HashMap<String, i64> =

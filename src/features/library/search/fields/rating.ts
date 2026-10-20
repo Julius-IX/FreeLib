@@ -2,7 +2,7 @@ import { RATING_MAX } from "../../rating";
 import { parseRange } from "../values";
 import type { FieldDef, Setter } from "./types";
 
-// A rating is 0-10 (the "7/10" next to the icons); a book with no rating isn't matched by any
+// A rating is 0-10 (the "7/10" next to the icons). A book with no rating isn't matched by any
 // rating range, use `has:rating` for those. Decimals are fine, "7,5" too, and a trailing "/10".
 
 const NUMBER = /^(?:\d+(?:[.,]\d+)?|[.,]\d+)$/;

@@ -186,7 +186,7 @@ fn append_merge_keeps_existing_books_and_adds_new_ones() {
     );
     // "frank herbert" is the same author as "Frank Herbert": only Joyce is new
     assert_eq!(report.authors_added, 1);
-    // only Ulysses (backup book 2) was written, as the live book 3; Dune was left alone
+    // only Ulysses (backup book 2) was written, as the live book 3, Dune was left alone
     assert_eq!(applied, HashMap::from([(2, 3)]));
     // the existing book's readings weren't doubled
     let n: i64 = sqlx::query_scalar(
@@ -252,7 +252,7 @@ fn append_merge_adds_missing_categories_and_leaves_existing_books_alone() {
     let mut report = ImportReport::default();
     merge_db(&host, &data, false, &mut report).await.unwrap();
 
-    // "fiction" is the host's "Fiction": matched by name, color kept; Sci-Fi and Classics are new
+    // "fiction" is the host's "Fiction": matched by name, color kept, Sci-Fi and Classics are new
     assert_eq!(report.categories_added, 2);
     // the existing Dune keeps exactly its own categories
     assert_eq!(
@@ -274,7 +274,7 @@ fn override_merge_replaces_categories_of_existing_books() {
     let mut report = ImportReport::default();
     merge_db(&host, &data, true, &mut report).await.unwrap();
 
-    // matched category takes the backup's color; Dune now has the backup's two categories
+    // matched category takes the backup's color, Dune now has the backup's two categories
     assert_eq!(
       categories_of(&host, "9780441013593").await,
       [
@@ -440,7 +440,7 @@ fn files_that_are_not_backups_are_refused() {
   fs::write(&junk, "definitely not a zip").unwrap();
   assert!(unpack(&junk, &dir.join("u1")).is_err());
 
-  // a zip without our manifest
+  // a zip without a FreeLib manifest
   let other = dir.join("other.zip");
   {
     let mut z = zip::ZipWriter::new(fs::File::create(&other).unwrap());

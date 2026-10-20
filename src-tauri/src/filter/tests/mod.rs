@@ -83,7 +83,7 @@ fn case_names_are_unique() {
 fn text_that_is_only_whitespace_counts_as_missing() {
   let pool = pool();
   tauri::async_runtime::block_on(async {
-    // book 7 has nothing filled in; give it text that looks empty
+    // book 7 has nothing filled in, give it text that looks empty
     sqlx::query("UPDATE book SET isbn = '  ', blurb = char(10, 9, 32), notes = char(13, 10) WHERE book_id = 7")
       .execute(&pool)
       .await

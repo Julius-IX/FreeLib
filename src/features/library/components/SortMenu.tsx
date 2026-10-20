@@ -12,7 +12,7 @@ export default function SortMenu() {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const close = () => setAnchor(null);
 
-  // Picking the current key flips its direction; a new key starts in its own natural one.
+  // Picking the current key flips its direction. A new key starts in its own natural one.
   const pick = (key: SortKey) => {
     setSort(
       key === sort.by

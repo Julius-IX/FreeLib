@@ -1,8 +1,8 @@
 import type { BookField } from "@/lib/types";
 import type { FieldDef } from "./types";
 
-// What you can type after `has:`, and the field each name stands for. The first name of each
-// group is the main one; the rest are what people tend to type.
+// Names accepted after `has:`, and the field each name stands for. The first name of each
+// group is the main one, the rest are what people tend to type.
 const NAMES: Record<BookField, string[]> = {
   isbn: ["isbn"],
   cover: ["cover", "covers", "image", "picture"],

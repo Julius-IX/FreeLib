@@ -4,7 +4,7 @@ use serde::Deserialize;
 use tauri_groups::TsType;
 
 /// What to order the books by. A book with no value for the key (no series, never read, no page
-/// count...) always goes last, whichever direction you pick.
+/// count...) always goes last, whichever direction is picked.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize, TsType)]
 #[serde(rename_all = "camelCase")]
 pub enum SortKey {

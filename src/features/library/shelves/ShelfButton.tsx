@@ -13,7 +13,7 @@ const sameSet = (a: number[], b: number[]) => a.length === b.length && a.every((
 
 /**
  * The book page's "put this on a shelf" button (Tachiyomi's heart). Tinted while the book is on
- * at least one shelf. Tapping it opens a checklist of every shelf; a book can be on any number
+ * at least one shelf. Tapping it opens a checklist of every shelf. A book can be on any number
  * of them. Shelves themselves are made in Settings, so with none defined the dialog says so.
  */
 export function ShelfButton({ bookId }: { bookId: number }) {

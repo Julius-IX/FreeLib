@@ -1,14 +1,11 @@
-//! A small key-value store for UI state (theme, toggles, dropdowns, ...), saved as one JSON
-//! file: `<app data dir>/settings.json`. Rust uses `Settings` directly (managed Tauri state);
-//! the frontend uses the `settings` commands, see `src/lib/settings.ts`.
+//! A small key-value store for UI state (theme, toggles, dropdowns, ...), saved as one JSON file:
+//! `<app data dir>/settings.json`. Rust uses `Settings` directly (managed Tauri state), the
+//! frontend uses the `settings` commands, see `src/lib/settings.ts`.
 //!
-//! Keys are plain strings, values are any JSON. Every `set` is written to disk right away.
-//!
-//! Only the keys listed in `KNOWN` are kept. Whatever else is in the file (a setting that was
-//! removed from the app, a typo, hand-edited junk) is dropped when the file is loaded, and every
-//! save rewrites the whole file from the current settings, so the file can't slowly collect keys
-//! nothing reads anymore. To add a setting: add its key to `KNOWN`, and its default (and check)
-//! in `src/lib/settings.ts`.
+//! Only the keys listed in `KNOWN` are kept. Anything else (a removed setting, a typo, hand-edited
+//! junk) is dropped on load and every save rewrites the whole file, so it can't collect keys that
+//! nothing reads. To add a setting: add its key to `KNOWN`, and its default (and check) in
+//! `src/lib/settings.ts`.
 
 use std::{
   collections::HashMap,
@@ -187,7 +184,7 @@ fn peek<T: DeserializeOwned>(path: &Path, key: &str) -> Option<T> {
 /// `Settings::get` for code that runs before the Tauri app (and so `Settings`) exists, like
 /// choosing the GTK backend. It finds the file the way `app_data_dir()` does on Linux:
 /// `$XDG_DATA_HOME` (if it's an absolute path) or `~/.local/share`, then the app identifier.
-/// Read-only; the real store is opened later by `init`.
+/// Read-only. The real store is opened later by `init`.
 #[cfg(target_os = "linux")]
 pub fn peek_early<T: DeserializeOwned>(identifier: &str, key: &str) -> Option<T> {
   use std::env::var_os;
@@ -210,7 +207,7 @@ impl Serialize for SettingsError {
   }
 }
 
-/// Everything saved so far. Settings that were never changed are absent; the frontend has the
+/// Everything saved so far. Settings that were never changed are absent. The frontend has the
 /// defaults.
 #[command(settings)]
 fn get_settings(settings: State<'_, Settings>) -> HashMap<String, Value> {

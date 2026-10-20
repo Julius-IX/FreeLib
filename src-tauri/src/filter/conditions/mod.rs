@@ -13,8 +13,8 @@ use sqlx::{QueryBuilder, Sqlite};
 
 use super::{BookFilter, Outside};
 
-/// How deep `exclude` entries may be nested inside each other. The search box makes one level;
-/// the limit only stops a hand-made filter from making the query absurdly large.
+/// How deep `exclude` entries may be nested inside each other. The search box makes one level.
+/// The limit only stops a hand-made filter from making the query absurdly large.
 const MAX_NESTING: usize = 4;
 
 /// Appends the conditions of every filter field that is set, and of every `exclude` entry. They

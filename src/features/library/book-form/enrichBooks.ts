@@ -8,14 +8,12 @@ import { type FormSnapshot, mergeLookup } from "./mergeLookup";
 import type { Choice } from "./types";
 
 /**
- * Runs the lookup plugins on books that are already saved and fills in what they're missing, with the same rule as the form's "Look up details"
- * button: only empty fields are filled, nothing that is there gets replaced (`mergeLookup`).
+ * Runs the lookup plugins on saved books and fills in what they're missing, with the same rule as
+ * the form's "Look up details" button (`mergeLookup`): only empty fields are filled.
  *
- * It's a loop over single books on purpose, so the caller gets a progress callback after every
- * book and can stop between two of them. What was already done stays done.
- *
- * Lookups run a few at a time (they wait on the network). Writes never overlap: two books that
- * both bring a new tag or author would otherwise each create it.
+ * It loops over single books so the caller gets a progress callback after every book and can stop
+ * between two. Lookups run a few at a time (they wait on the network), writes never overlap:
+ * two books that both bring a new tag or author would otherwise each create it.
  */
 
 export type EnrichProgress = {
@@ -176,7 +174,7 @@ export async function enrichBooks(bookIds: number[], opts: EnrichOptions = {}): 
 }
 
 /**
- * Merges the lookup into the saved book and writes it. Returns what was filled; `cover` is the
+ * Merges the lookup into the saved book and writes it. Returns what was filled. `cover` is the
  * link to download, if the book had no cover and the lookup has one. Must not run twice at once.
  */
 async function applyLookup(book: Book, draft: ReturnType<typeof toDraft>) {
@@ -207,7 +205,7 @@ async function applyLookup(book: Book, draft: ReturnType<typeof toDraft>) {
 
   // Only the cover? It has no database row to update.
   if (merged.filled.some((f) => f !== "cover")) {
-    // Choices that already have an id pass through unchanged; new names are matched or created.
+    // Choices that already have an id pass through unchanged. New names are matched or created.
     const authors = await saveNew(
       merged.authors ?? current.authors,
       () => commands.db_crud.listAuthors(),

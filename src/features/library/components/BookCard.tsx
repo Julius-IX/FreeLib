@@ -13,10 +13,8 @@ import { isMobile } from "@/util/misc";
 import { isScrolling, onScrollIdle } from "../scrollGate";
 
 /**
- * A card is plain DOM + class names on purpose. The grid mounts a whole row of them every time you
- * scroll past a row boundary (6-10 cards on desktop), and a card built from MUI Card /
- * CardActionArea / Typography / Box made every mount run emotion's style serialisation for each
- * piece. The styles now live once, on the grid (`bookCardSx`), and cards just carry class names.
+ * A card is plain DOM + class names on purpose. The grid mounts a whole row of them every time a
+ * row boundary is scrolled past. The styles live once on `bookCardSx` and cards carry class names.
  */
 
 /** Styles for every `.bk-*` element below. Apply to the grid element that contains the cards. */
@@ -99,7 +97,7 @@ export const bookCardSx = (theme: Theme): SystemStyleObject<Theme> => ({
     gap: "3px",
     pointerEvents: "none",
   },
-  // taller than the bar so it's easy to hover; the container ignores the mouse, this doesn't
+  // taller than the bar so it's easy to hover, the container ignores the mouse, this doesn't
   "& .bk-cat": {
     flex: "0 1 28px",
     minWidth: 4,
@@ -122,7 +120,7 @@ const categoryCache = new Map<number, { rev: number; categories: Category[] }>()
 
 /**
  * Trello-style colour labels over the top of the cover: one small bar per category, colour only
- * (hover one for its name; the full chips are on the book's page). Always ONE line: the bars share
+ * (hover one for its name, the full chips are on the book's page). Always ONE line: the bars share
  * the width and shrink (down to a thin sliver) rather than wrapping, so a book with many
  * categories never covers more of the cover than one with a few.
  */
@@ -154,7 +152,7 @@ function CategoryChips({ bookId }: { bookId: number }) {
           console.error("Failed to load categories", err);
         });
     };
-    // not while the grid is moving; fetched once the scroll settles
+    // not while the grid is moving, fetched once the scroll settles
     if (isScrolling()) onScrollIdle(load);
     else load();
 

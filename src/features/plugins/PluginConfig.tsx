@@ -34,7 +34,7 @@ export default function PluginConfig() {
     commands.plugins
       .listPlugins()
       .then((list) => !stale && setPlugin(list.find((p) => p.id === pluginId) ?? null))
-      .catch(() => { }); // only the name and hints come from here; the editor reports its own load errors
+      .catch(() => { }); // only the name and hints come from here, the editor reports its own load errors
     return () => {
       stale = true;
     };

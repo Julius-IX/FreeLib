@@ -50,7 +50,7 @@ export function startsAfter(birth: string, death: string): boolean {
 /** Tags are stored lower-case, so "Fantasy", "fantasy" and " FANTASY " are the same tag. */
 export const normTag = (s: string) => s.trim().toLowerCase();
 
-export const normIsbn = (s: string) => s.replace(/[\s-]/g, "").toUpperCase(); // 978-0-... == 9780...
+export const normIsbn = (s: string) => s.replace(/[\s-]/g, "").toUpperCase();
 
 /**
  * 13 digits, or 9 digits plus a digit or X. No checksum. (The Rust covers module applies the same

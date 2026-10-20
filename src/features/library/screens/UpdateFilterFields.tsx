@@ -114,7 +114,7 @@ export default function UpdateFilterFields() {
 
   const canSubmit = !!trimmed && !taken && !busy && !birthBad && !deathBad && !orderBad && !colorBad;
 
-  // Only the search box filters the list; typing in the add/edit field never does.
+  // Only the search box filters the list. Typing in the add/edit field never does.
   const searchTrimmed = search.trim();
   const visible = useMemo(() => {
     const q = searchTrimmed.toLowerCase();
@@ -136,7 +136,7 @@ export default function UpdateFilterFields() {
       if (kind === "tags") {
         await commands.db_crud.createTag({ tag: { tagTypeId: await defaultTagTypeId(), name: normTag(trimmed) } });
       } else if (kind === "categories") {
-        // the table only accepts lower-case-or-not `#rrggbb`; stored lower-case so colour search matches
+        // the table only accepts lower-case-or-not `#rrggbb`, stored lower-case so colour search matches
         const category = { name: trimmed, color: color.toLowerCase() };
         if (editing) await commands.db_crud.updateCategory({ categoryId: editing.id, category });
         else await commands.db_crud.createCategory({ category });

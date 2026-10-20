@@ -4,7 +4,7 @@ import { CATEGORY_STYLES, useCategoryStyle } from "@/features/library/categorySt
 
 const SAMPLE_NAMES = ["Lent Out", "Borrowed"];
 
-/** One card of sample chips per style; tap a card to pick it. */
+/** One card of sample chips per style. Tap a card to pick it. */
 export function CategoryStylePicker() {
   const [style, setStyle] = useCategoryStyle();
   // Sample colours come from the current theme, so the previews fit in instead of standing out.

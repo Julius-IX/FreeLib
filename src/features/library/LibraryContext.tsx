@@ -69,8 +69,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     };
   }, [nonce, revision]);
 
-  // Don't query before we know whether there are tabs, or the first paint would show the whole
-  // library and then jump to one shelf.
+  // Querying waits until it is known whether there are tabs, otherwise the first paint shows the
+  // whole library and then jumps to one shelf.
   const ready = shelvesLoaded && unshelvedCount !== null;
 
   const shelfTabs = useMemo<ShelfTabInfo[]>(() => {

@@ -1,7 +1,7 @@
 import { Autocomplete, Chip, CircularProgress, TextField } from "@mui/material";
 import type { ChipProps } from "@mui/material";
 import type { ReactNode } from "react";
-import CancelIcon from "@mui/icons-material/Cancel"; // round X
+import CancelIcon from "@mui/icons-material/Cancel";
 import { Fragment, useRef, useState } from "react";
 
 export type TagFieldProps<T> = {
@@ -10,8 +10,6 @@ export type TagFieldProps<T> = {
   // Controlled: the parent owns the chips, so they're always accessible.
   value: T[];
   onChange: (next: T[]) => void;
-
-  // Controlled suggestions: suggestions that the user can pick from
   options: T[];
   loading?: boolean;
   /** Fires as the user types. If provided, filtering is assumed to be
@@ -32,7 +30,7 @@ export type TagFieldProps<T> = {
   /** Called when the X is clicked (or backspace removes a chip). Return false to veto. */
   onChipRemove?: (item: T) => boolean | void;
   removeOnHover?: boolean; // X only visible while hovering (default true)
-  /** No X button; clicking a chip removes it (takes priority over onChipClick). */
+  /** No X button. Clicking a chip removes it (takes priority over onChipClick). */
   removeOnClick?: boolean;
   confirmOnSpace?: boolean; // space commits typed text (default true, needs free text)
 
@@ -94,7 +92,7 @@ export function TagField<T>({
     }
     if (item === null) return;
     const current = valueRef.current;
-    if (current.some((v) => keyOf(v) === keyOf(item!))) return; // dupe
+    if (current.some((v) => keyOf(v) === keyOf(item!))) return;
     onChange([...current, item]);
   };
 
@@ -148,7 +146,7 @@ export function TagField<T>({
       }
       renderValue={(vals, getItemProps) =>
         (vals as T[]).map((item, index) => {
-          // drop MUI's onDelete so removal goes through our own callback
+          // drop MUI's onDelete so removal goes through the component's own callback
           const { key, onDelete: _ignored, ...itemProps } = getItemProps({ index });
           const chipPropsFull: ChipProps = {
             ...itemProps,

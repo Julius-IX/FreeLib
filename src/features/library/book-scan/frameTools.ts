@@ -2,7 +2,7 @@ import { BrowserMultiFormatReader } from "@zxing/browser";
 import { BarcodeFormat, DecodeHintType, type Result } from "@zxing/library";
 import type { Found } from "./geometry";
 
-// Books carry EAN-13 (ISBN) barcodes; QR and a few others are accepted too.
+// Books carry EAN-13 (ISBN) barcodes. QR and a few others are accepted too.
 const hints = new Map<DecodeHintType, unknown>([
   [
     DecodeHintType.POSSIBLE_FORMATS,
@@ -106,8 +106,8 @@ export function createDecoder(video: HTMLVideoElement) {
 }
 
 /**
- * Returns a function that says whether a tiny sample of the picture differs from the last time
- * it was called (noise counts). It's how we tell a live picture from one still frame.
+ * Returns a function that says whether a tiny sample of the picture differs from the previous call
+ * (noise counts). Used to tell a live picture from a single still frame.
  */
 export function createMotionSampler(video: HTMLVideoElement) {
   const SIZE = 16;

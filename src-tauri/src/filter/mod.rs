@@ -47,8 +47,8 @@ pub enum ReadStatus {
   Finished,
 }
 
-/// Everything you can filter books on. Every field is optional (or an empty
-/// list) and means "don't filter on this"; all the ones you set are ANDed.
+/// Everything books can be filtered on. Every field is optional (or an empty
+/// list) and means "don't filter on this". All fields that are set are ANDed.
 ///
 /// **Substring** (case-insensitive, ASCII only)
 /// - `text`: title OR blurb OR notes OR isbn OR any author name OR any tag name OR any category
@@ -85,14 +85,14 @@ pub enum ReadStatus {
 ///   bound itself is left out (`>` and `<` instead of `>=` and `<=`). A reversed range is swapped,
 ///   each bound keeping its own exclusivity.
 ///
-/// **Author dates** (matches if any single author fits all the bounds you set)
+/// **Author dates** (matches if any single author fits all the bounds that are set)
 /// - `author_birth_from` / `author_birth_to`
 /// - `author_death_from` / `author_death_to`
 ///
 /// **Reading**
 /// - `read_status`: `unread`, `inProgress` or `finished`
 /// - `started_from` / `started_to` / `finished_from` / `finished_to`: a single
-///   reading row must satisfy every bound you set, so rereads can't cross-match
+///   reading row must satisfy every bound that is set, so rereads can't cross-match
 ///
 /// **Filled in**
 /// - `has`: every field listed is there. `isbn`, `blurb`, `notes` and `published` need some text
@@ -120,7 +120,7 @@ pub enum ReadStatus {
 /// (`2024` -> `2024-12-31`), so `from = to = "2024"` means "during 2024".
 ///
 /// Stored values may be partial too (`1950`, `1950-03`). A stored value counts
-/// as the whole period it names, and matches if that period overlaps your
+/// as the whole period it names, and matches if that period overlaps the
 /// range. Rows where the date is NULL, empty or not date-like never match a
 /// date bound. A bound that can't be parsed (for example half-typed input) is
 /// ignored rather than treated as an error. If `from` ends up after `to`, the
@@ -196,7 +196,7 @@ pub enum BookField {
 #[derive(Debug, Default)]
 pub(crate) struct Outside {
   /// The books that have a cover. Covers are files, so the command looks them up and hands the
-  /// answer in; it only does so when the filter asks about covers (see [`BookFilter::asks_about_covers`]).
+  /// answer in. It only does so when the filter asks about covers (see [`BookFilter::asks_about_covers`]).
   pub cover_ids: Vec<i64>,
 }
 
@@ -226,7 +226,7 @@ async fn filter_books(
   query_books(pool.inner(), &filter, sort.unwrap_or_default(), &outside).await
 }
 
-/// The books matching `filter`, in `sort` order. What the command runs; the tests call it directly.
+/// The books matching `filter`, in `sort` order. What the command runs. The tests call it directly.
 pub(crate) async fn query_books(
   pool: &SqlitePool,
   filter: &BookFilter,

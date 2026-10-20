@@ -53,7 +53,7 @@ INSERT INTO book_category (book_id, category_id) VALUES
 INSERT INTO book_shelf (book_id, shelf_id) VALUES
   (1, 1), (2, 1), (3, 1), (4, 1), (5, 1), (6, 2), (9, 2), (10, 2), (11, 1), (11, 2);
 
--- 1 was read and is being reread; 5 has no start date; 4 and 9 are in progress; the rest are unread
+-- 1 was read and is being reread, 5 has no start date, 4 and 9 are in progress, the rest are unread
 INSERT INTO reading (book_id, date_started, date_finished) VALUES
   (1, '2020-01-01', '2020-01-10'),
   (1, '2024-03-01', NULL),

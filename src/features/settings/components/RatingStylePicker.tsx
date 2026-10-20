@@ -5,7 +5,7 @@ import { RATING_STYLES, useRatingStyle } from "@/features/library/ratingStyle";
 // 7 of 10 = three and a half icons, so each card also shows what a half looks like.
 const SAMPLE = 7;
 
-/** One card per style with a sample rating in it; tap a card to pick it. */
+/** One card per style with a sample rating in it. Tap a card to pick it. */
 export function RatingStylePicker() {
   const [style, setStyle] = useRatingStyle();
   return (

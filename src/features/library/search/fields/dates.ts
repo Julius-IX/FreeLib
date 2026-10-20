@@ -2,8 +2,8 @@ import type { BookFilter } from "@/lib/types";
 import { parseRange } from "../values";
 import type { FieldDef, Setter } from "./types";
 
-// Dates are sent to the backend as typed ("2024", "2024-03", "March 2024", ...);
-// it expands partial dates to whole periods and ignores anything half-typed.
+// Dates are sent to the backend as typed ("2024", "2024-03", "March 2024", ...).
+// It expands partial dates to whole periods and ignores anything half-typed.
 
 const dates =
   (set: (f: BookFilter, from: string | null, to: string | null) => void): Setter =>

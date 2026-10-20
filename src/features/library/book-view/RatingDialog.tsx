@@ -3,7 +3,7 @@ import { Button, Dialog, DialogActions, DialogContent, DialogTitle, InputAdornme
 import { RATING_MAX, formatRatingNumber, parseRating } from "../rating";
 
 /**
- * Type an exact rating, fractions included ("7.5", or "7,5"). The icons are for quick taps; this
+ * Type an exact rating, fractions included ("7.5", or "7,5"). The icons are for quick taps. This
  * is for everything in between. 0 (or "Clear") takes the rating away.
  */
 export function RatingDialog({

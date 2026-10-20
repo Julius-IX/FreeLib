@@ -14,7 +14,7 @@ export const isDesktop = () => {
   return platform() === "linux" || platform() === "macos" || platform() === "windows";
 }
 
-/** Wraps fn so it runs on the first call only; every later call returns that first result. */
+/** Wraps fn so it runs on the first call only. Every later call returns that first result. */
 export const once = <T>(fn: () => T): (() => T) => {
   let done = false;
   let value: T;

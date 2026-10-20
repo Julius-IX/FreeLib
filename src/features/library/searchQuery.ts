@@ -55,8 +55,8 @@ const STATUS: Record<string, ReadStatus> = {
 
 type Setter = (f: BookFilter, v: string) => void;
 
-// Dates are sent to the backend as typed ("2024", "2024-03", "March 2024", ...);
-// it expands partial dates to whole periods and ignores anything half-typed.
+// Dates are sent to the backend as typed ("2024", "2024-03", "March 2024", ...).
+// It expands partial dates to whole periods and ignores anything half-typed.
 
 const INT = /^\d+$/;
 const OP = /^(>=|<=|>|<|=)\s*(.*)$/;

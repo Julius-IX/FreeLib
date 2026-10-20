@@ -12,7 +12,7 @@ struct Attrs {
   ty: Option<String>, // #[ts(type = "...")]
 }
 
-/// Reads `#[serde(..)]` and `#[ts(..)]`; ignores every serde key we don't care about.
+/// Reads `#[serde(..)]` and `#[ts(..)]`. Ignores every serde key that is irrelevant here.
 fn attrs(list: &[syn::Attribute]) -> syn::Result<Attrs> {
   let mut out = Attrs::default();
   for a in list {

@@ -10,7 +10,7 @@ use syn::{
 
 mod ts_derive;
 
-/// Argument types Tauri injects itself; these never cross the wire.
+/// Argument types Tauri injects itself. These never cross the wire.
 const INJECTED: &[&str] = &[
   "State",
   "AppHandle",
@@ -117,7 +117,7 @@ pub fn group(args: TokenStream, input: TokenStream) -> TokenStream {
 
 /// Derive a TypeScript equivalent for a struct / newtype / unit-only enum.
 /// Emitted as an `export interface` / `export type` into the generated file.
-/// Honors `#[serde(rename_all, rename, skip)]`; per-field override with
+/// Honors `#[serde(rename_all, rename, skip)]`. Per-field override with
 /// `#[ts(type = "string")]`, and `#[ts(skip)]`.
 #[proc_macro_derive(TsType, attributes(ts))]
 pub fn derive_ts_type(input: TokenStream) -> TokenStream {

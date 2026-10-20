@@ -1,7 +1,7 @@
 import { normTag } from "../../book-form/inputs";
 import type { FieldDef } from "./types";
 
-/** Substring searches (case-insensitive; quote a value that has spaces) and the colour. */
+/** Substring searches (case-insensitive, quote a value that has spaces) and the colour. */
 export const textFields: FieldDef[] = [
   { keys: ["title"], help: "title:dune  words in the title", set: (f, v) => { f.title = v; } },
   { keys: ["blurb"], help: "blurb:wizard  words in the blurb", set: (f, v) => { f.blurb = v; } },

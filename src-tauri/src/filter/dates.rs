@@ -73,7 +73,7 @@ fn day_of(p: &Part) -> Option<u32> {
   }
 }
 
-/// `a b year` -> (month, day). Month names decide the order; with two numbers
+/// `a b year` -> (month, day). Month names decide the order. With two numbers
 /// the one above 12 is the day, and when it's ambiguous (03/04/2024) the day
 /// comes first (3 April), the way it is written in most of the world.
 fn month_day_before_year(a: &Part, b: &Part) -> Option<(u32, u32)> {
@@ -116,7 +116,7 @@ fn parse_date(raw: &str, end: bool) -> Option<String> {
     }
   }
 
-  // Only separators we understand. Anything else (`>2024`, `2024:`) is not a date,
+  // Only known separators are accepted. Anything else (`>2024`, `2024:`) is not a date,
   // rather than silently becoming one.
   if s
     .chars()
@@ -327,7 +327,7 @@ mod tests {
       (Some("1990-01-01"), Some("2000-12-31"))
     );
 
-    // unparseable side is open; both unparseable is empty
+    // unparseable side is open, both unparseable is empty
     let b = date_bound(&s("19"), &s("2000"));
     assert_eq!((b.from, b.to.as_deref()), (None, Some("2000-12-31")));
     assert!(date_bound(&s("19"), &s("x")).is_empty());
