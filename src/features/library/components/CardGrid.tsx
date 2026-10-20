@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type MouseEvent, type PointerEvent } from "react";
 import { alpha, Box, useTheme } from "@mui/material";
 import BookCard, { bookCardSx } from "./BookCard";
 import { Book } from "@/lib/types";
@@ -17,6 +17,16 @@ const EDGE_HOT_ZONE = 16;
 /** Smallest thumb height (px), so it stays grabbable in very long libraries. */
 const MIN_THUMB = 36;
 
+/** What the grid needs to select books. It is optional, without it a click just opens the book. */
+export type GridSelection = {
+  active: boolean;
+  selected: ReadonlySet<number>;
+  /** A click in selection mode. `range` is a shift-click. */
+  onToggle: (book: Book, range: boolean) => void;
+  /** A long press, a right click or a Ctrl-click: starts the mode with this book. */
+  onStart: (book: Book) => void;
+};
+
 /**
  * Windowed grid: only the rows in (or near) the viewport are mounted. Everything above and below
  * is replaced by padding of the same height, so the scrollbar and scroll position behave exactly
@@ -26,9 +36,11 @@ const MIN_THUMB = 36;
 export default function CardGrid({
   items,
   onOpen,
+  selection,
 }: {
   items: Book[];
   onOpen?: (book: Book) => void;
+  selection?: GridSelection;
 }) {
   const isOnMobile = isMobile();
   const [columns] = useLibraryColumns();
@@ -105,7 +117,15 @@ export default function CardGrid({
   // Keeps BookCard's props stable so memoised cards don't re-render when the window moves.
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;
-  const handleOpen = useCallback((book: Book) => onOpenRef.current?.(book), []);
+  const selectionRef = useRef(selection);
+  selectionRef.current = selection;
+  const handleClick = useCallback((book: Book, e: MouseEvent) => {
+    const sel = selectionRef.current;
+    if (sel?.active) sel.onToggle(book, e.shiftKey);
+    else if (sel && (e.ctrlKey || e.metaKey)) sel.onStart(book);
+    else onOpenRef.current?.(book);
+  }, []);
+  const handleLongPress = useCallback((book: Book) => selectionRef.current?.onStart(book), []);
 
   const rowCount = Math.ceil(items.length / columns);
   const cardWidth = (width - gap * (columns - 1)) / columns;
@@ -229,7 +249,14 @@ export default function CardGrid({
             ]}
           >
             {visible.map((book) => (
-              <BookCard key={book.bookId} book={book} onClick={handleOpen} />
+              <BookCard
+                key={book.bookId}
+                book={book}
+                selecting={selection?.active ?? false}
+                selected={selection?.selected.has(book.bookId) ?? false}
+                onClick={handleClick}
+                onLongPress={selection ? handleLongPress : undefined}
+              />
             ))}
           </Box>
         </Box>
