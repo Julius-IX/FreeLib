@@ -41,6 +41,7 @@ export function emptyFilter(): BookFilter {
     finishedFrom: null,
     finishedTo: null,
     has: [],
+    exclude: [],
   };
 }
 
