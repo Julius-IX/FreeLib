@@ -1,5 +1,6 @@
 import { RATING_MAX } from "../../rating";
 import { parseRange } from "../values";
+import { NUMBER_HINTS } from "./hints";
 import type { FieldDef, Setter } from "./types";
 
 // A rating is 0-10 (the "7/10" next to the icons). A book with no rating isn't matched by any
@@ -46,6 +47,7 @@ export const ratingFields: FieldDef[] = [
   {
     keys: ["rating"],
     help: "rating:8 | >7 | >=7 | <5 | <=5 | 5..8 | 7.. | ..5   on the 0-10 scale, rated books only",
+    suggest: { summary: "rating from 0 to 10", values: NUMBER_HINTS },
     set: setRating,
   },
 ];

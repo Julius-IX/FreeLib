@@ -1,4 +1,5 @@
 import { parseRange, toInt } from "../values";
+import { NUMBER_HINTS } from "./hints";
 import type { FieldDef, Setter } from "./types";
 
 /** pages:300  pages:>300  pages:>=300  pages:<300  pages:100..300  pages:300..  pages:..300 */
@@ -29,6 +30,7 @@ export const pageFields: FieldDef[] = [
   {
     keys: ["pages", "pagecount"],
     help: "pages:300 | >300 | >=300 | <300 | <=300 | 100..300 | 300.. | ..300",
+    suggest: { summary: "page count", values: NUMBER_HINTS },
     set: setPages,
   },
 ];
