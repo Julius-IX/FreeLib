@@ -6,13 +6,13 @@ import { isField } from "./fields";
  */
 export type Token = { key: string | null; value: string; negated: boolean };
 
-const KEY = /^([A-Za-z]+):/;
-const isQuote = (c?: string) => c === "'" || c === '"';
+export const KEY = /^([A-Za-z]+):/;
+export const isQuote = (c?: string) => c === "'" || c === '"';
 
 // Reads a quoted run starting at s[i]. A quote only *closes* when followed by
 // whitespace or end of input, so apostrophes inside ("Ender's Game") survive.
 // Unterminated quotes take the rest of the string, so half-typed input works.
-function readQuoted(s: string, i: number): [string, number] {
+export function readQuoted(s: string, i: number): [string, number] {
   const q = s[i];
   let j = i + 1;
   let out = "";

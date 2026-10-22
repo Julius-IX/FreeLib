@@ -3,6 +3,28 @@ import type { BookFilter } from "@/lib/types";
 /** Applies the value of one `key:value` token to the filter. Ignores a value it can't use. */
 export type Setter = (f: BookFilter, v: string) => void;
 
+/** One value a key accepts after the colon, as listed in the suggestions. */
+export type ValueHint = {
+  /** The main spelling. Aliases are only offered when no main spelling fits what was typed. */
+  value: string;
+  aliases?: string[];
+  help: string;
+};
+
+/** What the suggestions list shows for a key. */
+export type Suggest = {
+  summary: string;
+  values?: ValueHint[];
+  /**
+   * List every value as its own `key:value` entry while only the key is typed. Meant for a closed
+   * set of choices (`has:`, `status:`). Operators like `>=` are left out of it, they only make
+   * sense once the colon is there.
+   */
+  expand?: boolean;
+  /** The value is a comma separated list, so each item is suggested on its own. */
+  multi?: boolean;
+};
+
 /**
  * One key accepted in the search box.
  *
@@ -15,4 +37,6 @@ export type FieldDef = {
   set: Setter;
   /** One line of documentation: what it takes. */
   help: string;
+  /** Left out for keys that are not meant to be typed by hand (the id keys). */
+  suggest?: Suggest;
 };
