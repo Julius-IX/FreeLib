@@ -16,7 +16,9 @@ export const SORT_INFO: Record<SortKey, { label: string; dir: SortDir }> = {
   added: { label: "Date added", dir: "desc" },
   published: { label: "Publish date", dir: "desc" },
   pages: { label: "Page count", dir: "desc" },
+  rating: { label: "Rating", dir: "desc" },
   lastRead: { label: "Last read", dir: "desc" },
+  firstRead: { label: "First read", dir: "desc" },
   timesRead: { label: "Times read", dir: "desc" },
 };
 

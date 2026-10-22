@@ -264,7 +264,7 @@ export type Shelf = {
 
 export type SortDir = "asc" | "desc";
 
-export type SortKey = "title" | "author" | "series" | "category" | "added" | "published" | "pages" | "lastRead" | "timesRead";
+export type SortKey = "title" | "author" | "series" | "category" | "added" | "published" | "pages" | "rating" | "lastRead" | "firstRead" | "timesRead";
 
 export type StatsGroup = "readStatus" | "author" | "tag" | "category" | "shelf" | "series" | "publishYear" | "publishDecade" | "rating" | "pageCount" | "addedMonth" | "finishedYear" | "finishedMonth";
 

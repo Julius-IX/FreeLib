@@ -23,8 +23,12 @@ pub enum SortKey {
   Published,
   /// Page count.
   Pages,
+  /// The book's rating. Unrated books (stored as 0) count as missing.
+  Rating,
   /// Most recent reading: its finish date, or its start date while it is still in progress.
   LastRead,
+  /// Earliest reading: its start date, or its finish date when no start date was set.
+  FirstRead,
   /// How many readings are finished. A book never read counts as 0 (it is never "missing").
   TimesRead,
 }
@@ -64,8 +68,14 @@ impl SortKey {
       SortKey::Added => "b.added_at",
       SortKey::Published => "b.publish_date",
       SortKey::Pages => "b.page_count",
+      // 0 means not rated, so it is turned into NULL to land last like any other missing value
+      SortKey::Rating => "NULLIF(b.rating, 0)",
       SortKey::LastRead => {
         "(SELECT MAX(COALESCE(r.date_finished, r.date_started)) FROM reading r \
+         WHERE r.book_id = b.book_id)"
+      }
+      SortKey::FirstRead => {
+        "(SELECT MIN(COALESCE(r.date_started, r.date_finished)) FROM reading r \
          WHERE r.book_id = b.book_id)"
       }
       SortKey::TimesRead => {
@@ -125,11 +135,13 @@ mod tests {
       );
     }
     assert!(sql(SortKey::Pages, SortDir::Desc).contains("b.page_count DESC"));
-    // series keep reading order whichever way they are sorted
+    // an unrated book (0) is missing too, not the lowest rating
     assert!(
-      sql(SortKey::Series, SortDir::Desc)
-        .contains("DESC, b.series_position IS NULL, b.series_position,")
+      sql(SortKey::Rating, SortDir::Asc).starts_with(" ORDER BY (NULLIF(b.rating, 0)) IS NULL,")
     );
+    // series keep reading order whichever way they are sorted
+    assert!(sql(SortKey::Series, SortDir::Desc)
+      .contains("DESC, b.series_position IS NULL, b.series_position,"));
     assert!(sql(SortKey::Added, SortDir::Desc).contains("b.added_at DESC, b.book_id DESC,"));
     // never-read books are 0, not missing
     assert!(!sql(SortKey::TimesRead, SortDir::Asc).contains("IS NULL"));
